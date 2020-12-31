@@ -1,37 +1,11 @@
-from gameServer import *
-from board import *
-
-class Human(BasePlayer):
-    """
-    human player
-    """
-
-    def __init__(self):
-        self.player = None
-
-    def set_player_ind(self, p):
-        self.player = p
-
-    def get_action(self, board):
-        try:
-            location = input("Your move: ")
-            if isinstance(location, str):  # for python3
-                location = [int(n) for n in location.split(",")]
-            move = board.location_to_move(location)
-        except Exception as e:
-            move = -1
-        if move == -1 or move not in board.possible_moves():
-            print("invalid move")
-            move = self.get_action(board)
-        return move
-
-    def __str__(self):
-        return "Human {}".format(self.player)
+from gameServer import GameServer
+from players import *
 
 def run():
-    model_file = 'best_policy_8_8_5.model'
     try:
-        game = Game()
+        human1 = RandomPlayer()
+        human2 = RandomPlayer()
+        game = GameServer(human1, human2)
 
         # ############### human VS AI ###################
         # load the trained policy_value_net in either Theano/Lasagne, PyTorch or TensorFlow
@@ -54,13 +28,13 @@ def run():
         # mcts_player = MCTS_Pure(c_puct=5, n_playout=1000)
 
         # human player, input your move in the format: 2,3
-        human1 = Human()
-        human2 = Human()
+
 
         # set start_player=0 for human first
-        game.start_play(human1, human2, start_player=0)
+        # game.start_play()
+        game.play_games(num=100)
     except KeyboardInterrupt:
-        print('\n\rquit')
+        print('\n\r\n\rQuit.')
 
 
 if __name__ == '__main__':

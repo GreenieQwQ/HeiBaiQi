@@ -1,13 +1,21 @@
 import numpy as np
 
 
-class Othello:
-    def __init__(self):
-        self.reset_board()
+class Board:
+    def __init__(self, width=8):
+        self.width = width
+        self.reset_board(self.width)
 
+    def getBoardSize(self):
+        return self.width, self.width
 
-    def reset_board(self):
-        self.board = np.zeros((8, 8), dtype=np.int)
+    # TODO: +1 ？
+    def getActionSize(self):
+        # return number of actions
+        return self.width * self.width + 1
+
+    def reset_board(self, width=8):
+        self.board = np.zeros((width, width), dtype=np.int)
         self.players = [-1, 1]
         self.current_player = self.players[0]  # start player
         self.board[3, 3] = 1
@@ -25,8 +33,8 @@ class Othello:
             else self.players[1]
         )
 
-    def play_move(self, move):
-        x, y = Othello.move_to_location(move)
+    def do_move(self, move):
+        x, y = Board.move_to_location(move)
         side = self.current_player
         if move not in self.possible_moves():
             raise ValueError("Invalid move")
@@ -34,7 +42,7 @@ class Othello:
             return
         self.board[x, y] = side
         self.flip(x, y, side)
-        self.current_player = self.get_opponent()   # 换边
+        self.current_player = self.get_opponent()  # 换边
 
     def game_end(self):
         is_over = self.is_game_over()
@@ -43,11 +51,7 @@ class Othello:
         return is_over, self.get_winner()
 
     def is_game_over(self):
-        for i in range(8):
-            for j in range(8):
-                if self.board[i, j] == 0 and (self.valid_flip(i, j, -1) or self.valid_flip(i, j, 1)):
-                    return False
-        return True
+        return len(self.possible_moves()) == 0
 
     def get_winner(self):
         t = np.sum(self.board)
@@ -60,10 +64,10 @@ class Othello:
     def possible_moves(self):
         side = self.get_current_player()
         moves = []
-        for i in range(8):
-            for j in range(8):
+        for i in range(self.width):
+            for j in range(self.width):
                 if self.board[i, j] == 0 and self.valid_flip(i, j, side):
-                    moves.append(Othello.location_to_move((i, j)))
+                    moves.append(Board.location_to_move((i, j)))
         return moves
 
     def valid_flip(self, x, y, side):
@@ -112,19 +116,16 @@ class Othello:
             ty += dy
 
     def print_board(self):
-        width, height = 8, 8
         print(" " * 2, end="")
-        for x in range(width):
+        for x in range(self.width):
             print("{0:4}".format(x), end='')
         print()
-        for i in range(height):
+        for i in range(self.width):
             print("{0:4d}".format(i), end='')
-            for j in range(width):
-                p = Othello.piece_map(self.board[i, j])
+            for j in range(self.width):
+                p = Board.piece_map(self.board[i, j])
                 print(p.center(4), end='')
             print()
-
-
 
     @staticmethod
     def piece_map(x):
@@ -135,19 +136,19 @@ class Othello:
         }[x]
 
     @staticmethod
-    def location_to_move(location):
+    def location_to_move(location, width=8):
         if location == (-1, -1):
             return 64
-        return location[0] + location[1] * 8
+        return location[0] + location[1] * width
 
     move_count = 65
 
     @staticmethod
-    def move_to_location(move):
+    def move_to_location(move, width=8):
         if move == 64:
             return (-1, -1)
-        x = move % 8
-        y = move // 8
+        x = move % width
+        y = move // width
         return (x, y)
 
     @staticmethod
@@ -159,4 +160,3 @@ class Othello:
             id += mult * int(t)
             mult *= 3
         return id
-
