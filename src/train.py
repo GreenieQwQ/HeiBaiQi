@@ -20,10 +20,8 @@ from tqdm import trange
 class TrainPipeline:
     def __init__(self, model_path=None, **kwargs):
         # params of the board and the game
-        self.board_width = 6
-        self.board_height = 6
-        self.n_in_row = 4
         self.game = GameServer()
+        self.board_width, self.board_height = self.game.getBoardSize()
         # training params
         self.temp = 1.0  # the temperature param
         self.n_playout = 400  # num of simulations for each move
@@ -31,8 +29,8 @@ class TrainPipeline:
         self.buffer_size = 10000
         self.batch_size = 512  # mini-batch size for training
         self.data_buffer = deque(maxlen=self.buffer_size)
-        self.play_batch_size = 1  # 一次增加数据下多少次棋
-        self.check_freq = 50
+        self.play_batch_size = 2  # 一次增加数据下多少次棋
+        self.check_freq = 3
         self.game_batch_num = 1500  # 总共下多少次棋来训练
         self.best_win_ratio = 0.0
         # num of simulations used for the pure mcts, which is used as
@@ -58,15 +56,18 @@ class TrainPipeline:
         extend_data = []
         for state, mcts_porb, winner in play_data:
             for i in [1, 2, 3, 4]:
+                # print(state)
+                # print(mcts_porb)
+                # print(winner)
                 # rotate counterclockwise
-                equi_state = np.array([np.rot90(s, i) for s in state])
+                equi_state = np.rot90(state, i)
                 equi_mcts_prob = np.rot90(np.flipud(
                     mcts_porb.reshape(self.board_height, self.board_width)), i)
                 extend_data.append((equi_state,
                                     np.flipud(equi_mcts_prob).flatten(),
                                     winner))
                 # flip horizontally
-                equi_state = np.array([np.fliplr(s) for s in equi_state])
+                equi_state = np.fliplr(equi_state)
                 equi_mcts_prob = np.fliplr(equi_mcts_prob)
                 extend_data.append((equi_state,
                                     np.flipud(equi_mcts_prob).flatten(),
@@ -76,7 +77,7 @@ class TrainPipeline:
     # 自己下n次棋 并且通过数据增强获取(s,a,v)
     def collect_selfplay_data(self, n_games=1):
         """collect self-play data for training"""
-        for i in trange(n_games):
+        for i in trange(n_games, ncols=80):
             winner, play_data = self.game.start_self_play(self.mcts_player,
                                                           temp=self.temp)
             play_data = list(play_data)[:]
@@ -90,7 +91,7 @@ class TrainPipeline:
         loss, entropy = self.policy_value_net.train(self.data_buffer, self.batch_size)
         return loss, entropy
 
-    def evaluate_with_best(self, iteration, n_games=100):
+    def evaluate_with_best(self, iteration, n_games=10):
         """
             Evaluate the trained policy by playing against the best past MCTS player
         """
@@ -120,7 +121,7 @@ class TrainPipeline:
 
         return win_ratio
 
-    def evaluate_with_pure(self, iteration, n_games=100):
+    def evaluate_with_pure(self, iteration, n_games=10):
         """
         Evaluate the trained policy by playing against the pure MCTS player
         Note: this is only for monitoring the progress of training
@@ -131,7 +132,7 @@ class TrainPipeline:
         pure_mcts_player = MCT_Pure_Player(c_puct=5,
                                            n_playout=self.pure_mcts_playout_num)
         win_cnt = defaultdict(int)
-        for i in range(n_games):
+        for i in trange(n_games):
             winner = self.game.play_a_game(current_mcts_player,
                                            pure_mcts_player,
                                            start_player=i % 2,
@@ -154,17 +155,17 @@ class TrainPipeline:
             for i in range(self.game_batch_num):
                 self.collect_selfplay_data(self.play_batch_size)
                 print(f"Game i:{i + 1}")
-                if len(self.data_buffer) > self.batch_size:
+                if len(self.data_buffer) > self.batch_size * 2:
                     loss, entropy = self.policy_update()
                 # check the performance of the current model,
                 # and save the model params
                 if (i + 1) % self.check_freq == 0:
                     print("current self-play game: {}".format(i + 1))
-                    if i < 2 * self.check_freq:
+                    self.policy_value_net.save_checkpoint(self.checkPointPath)
+                    if ((i + 1) // self.check_freq) % 2 != 0:
                         win_ratio = self.evaluate_with_pure(i + 1)
                     else:
                         win_ratio = self.evaluate_with_best(i+1)
-                    self.policy_value_net.save_checkpoint(self.checkPointPath)
                     if win_ratio > self.best_win_ratio:
                         print("New best policy!!!!!!!!")
                         self.best_win_ratio = win_ratio

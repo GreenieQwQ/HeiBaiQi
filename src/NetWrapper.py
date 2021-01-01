@@ -4,10 +4,9 @@ import torch
 from time import time
 import os
 import numpy as np
-from utils import AverageMeter
+from utils import *
 from progress.bar import Bar
 from board import Board
-
 
 class Args:
     lr = 0.01
@@ -20,12 +19,12 @@ class Args:
 args = Args
 # Device configuration
 # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-# device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-device = torch.device('cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cpu')
 
 class PolicyNet:
     def __init__(self, game):
-        self.nnet = OthelloNet(game, num_channels=args.num_channels, dropout=args.dropout)
+        self.nnet = OthelloNet(game, num_channels=args.num_channels, dropout=args.dropout).to(device)
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
         self.optimizer = optim.Adam(
@@ -35,10 +34,13 @@ class PolicyNet:
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, cooldown=10)
 
     # batches = [(s, pi, v)]
-    # epoches: 在batch上训练的次数
-    def train(self, batches, train_steps=5):
+    # train_steps: 一次训练多少个数的batch
+    def train(self, batches, batch_size, train_steps=500):
         # 随机打乱batch
-        np.shuffle(batches)
+        dataset = SAV_Dataset(batches)
+        dataloader = SAV_DataLoader(dataset, device, batch_size=batch_size, shuffle=True)
+        dataloader.shuffle()
+
         self.nnet.train()
 
         data_time = AverageMeter()
@@ -51,28 +53,23 @@ class PolicyNet:
         bar = Bar(f'Training Net', max=train_steps)
         current_step = 0
         while current_step < train_steps:
-            for batch_idx, batch in enumerate(batches):
+            for batch_idx, batch in enumerate(dataloader):
                 if current_step == train_steps:
                     break
                 current_step += 1
-                boards, target_pis, target_vs = batch
-
-                # predict
-                if args.cuda:
-                    boards, target_pis, target_vs = boards.contiguous().cuda(
-                    ), target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
+                states, target_pis, target_vs = batch
 
                 # measure data loading time
                 data_time.update(time() - end)
 
                 # compute output
-                out_pi, out_v = self.nnet(boards)
+                out_pi, out_v = self.nnet(states)
                 l_pi = self.loss_pi(target_pis, out_pi)
                 l_v = self.loss_v(target_vs, out_v)
                 total_loss = l_pi + l_v
                 # record loss
-                pi_losses.update(l_pi.item(), boards.size(0))
-                v_losses.update(l_v.item(), boards.size(0))
+                pi_losses.update(l_pi.item(), states.size(0))
+                v_losses.update(l_v.item(), states.size(0))
 
                 # compute gradient and do SGD step
                 self.optimizer.zero_grad()
@@ -120,7 +117,7 @@ class PolicyNet:
         """
         # preparing input
         input_board = board.getState()
-        input_board = torch.FloatTensor(input_board.astype(np.float64))
+        input_board = torch.FloatTensor(input_board.astype(np.float64)).to(device)
         with torch.no_grad():
             input_board = input_board.view(1, self.board_x, self.board_y)
             self.nnet.eval()

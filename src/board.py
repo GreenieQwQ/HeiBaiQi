@@ -5,7 +5,6 @@ class Board:
     def __init__(self, width=8):
         self.width = width
         self.reset_board(self.width)
-        self.availables = self.get_valid_moves()
 
     def getBoardSize(self):
         return self.width, self.width
@@ -13,7 +12,7 @@ class Board:
     # TODO: +1 ？
     def getActionSize(self):
         # return number of actions
-        return self.width * self.width + 1
+        return self.width * self.width
 
     def getState(self):
         return np.copy(self.board)
@@ -26,6 +25,7 @@ class Board:
         self.board[3, 4] = -1
         self.board[4, 3] = -1
         self.board[4, 4] = 1
+        self.availables = self.get_valid_moves()
 
     def get_current_player(self):
         return self.current_player
