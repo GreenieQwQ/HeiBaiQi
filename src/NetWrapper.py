@@ -9,11 +9,9 @@ from progress.bar import Bar
 from board import Board
 
 class Args:
-    lr = 0.01
+    lr = 0.02
     dropout = 0.3
-    cuda = torch.cuda.is_available()
     num_channels = 512
-    depth = 10
 
 
 args = Args
@@ -124,18 +122,18 @@ class PolicyNet:
             pi, v = self.nnet(input_board)
 
         # 过滤非法动作
-        act_probs = torch.exp(pi).data.cpu().numpy()[0]
+        act_probs = torch.exp(pi).data.cpu().numpy()[0]     # + 1e-10     # 防止出现全0概率的过拟合现象
         value = v.data.cpu().numpy()[0]
         availables = board.possible_moves()
         return zip(availables, act_probs[availables]), value
 
-    def process(self, batch):
-        if args.cuda:
-            batch = batch.cuda()
-        self.nnet.eval()
-        with torch.no_grad():
-            pi, v = self.nnet(batch)
-            return torch.exp(pi), v
+    # def process(self, batch):
+    #     if args.cuda:
+    #         batch = batch.cuda()
+    #     self.nnet.eval()
+    #     with torch.no_grad():
+    #         pi, v = self.nnet(batch)
+    #         return torch.exp(pi), v
 
     # 交叉熵 output已经过log_softmax层
     def loss_pi(self, targets, outputs):
@@ -154,6 +152,7 @@ class PolicyNet:
             'opt_state': self.optimizer.state_dict(),
             'sch_state': self.scheduler.state_dict()
         }, filepath)
+        return self
 
     def load_checkpoint(self, folder='../data/checkpoint', filename='checkpoint.pth.tar'):
         filepath = os.path.join(folder, filename)
@@ -165,3 +164,4 @@ class PolicyNet:
             self.optimizer.load_state_dict(checkpoint['opt_state'])
         if 'sch_state' in checkpoint:
             self.scheduler.load_state_dict(checkpoint['sch_state'])
+        return self

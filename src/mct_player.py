@@ -172,7 +172,7 @@ class MCTSPlayer(BasePlayer):
     """AI player based on MCTS"""
 
     def __init__(self, policy_value_function,
-                 c_puct=5, n_playout=2000, is_selfplay=0):
+                 c_puct=5, n_playout=2000, is_selfplay=False):
         self.mcts = MCTS(policy_value_function, c_puct, n_playout)
         self._is_selfplay = is_selfplay
 
@@ -185,7 +185,7 @@ class MCTSPlayer(BasePlayer):
     def get_action(self, board, temp=1e-3, return_prob=0):
         sensible_moves = board.possible_moves()
         # the pi vector returned by MCTS as in the alphaGo Zero paper
-        move_probs = np.zeros(board.width*board.width)
+        move_probs = np.zeros(board.width*board.width + 1)
         if len(sensible_moves) > 0:
             acts, probs = self.mcts.get_move_probs(board, temp)
             move_probs[list(acts)] = probs

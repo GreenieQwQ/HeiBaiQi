@@ -30,8 +30,8 @@ class TrainPipeline:
         self.batch_size = 512  # mini-batch size for training
         self.data_buffer = deque(maxlen=self.buffer_size)
         self.play_batch_size = 2  # 一次增加数据下多少次棋
-        self.check_freq = 3
-        self.game_batch_num = 1500  # 总共下多少次棋来训练
+        self.check_freq = 50
+        self.game_batch_num = 3000  # 总共下多少次棋来训练
         self.best_win_ratio = 0.0
         # num of simulations used for the pure mcts, which is used as
         # the opponent to evaluate the trained policy
@@ -41,7 +41,7 @@ class TrainPipeline:
         self.mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn,
                                       c_puct=self.c_puct,
                                       n_playout=self.n_playout,
-                                      is_selfplay=1)
+                                      is_selfplay=True)
 
         self.writer = SummaryWriter(log_dir='../data/record')
 
@@ -55,6 +55,9 @@ class TrainPipeline:
         """
         extend_data = []
         for state, mcts_porb, winner in play_data:
+            # 注意：先提取出第65个元素
+            stop_prob = mcts_porb[self.board_width * self.board_width]
+            square_prob = mcts_porb[:-1]
             for i in [1, 2, 3, 4]:
                 # print(state)
                 # print(mcts_porb)
@@ -62,15 +65,17 @@ class TrainPipeline:
                 # rotate counterclockwise
                 equi_state = np.rot90(state, i)
                 equi_mcts_prob = np.rot90(np.flipud(
-                    mcts_porb.reshape(self.board_height, self.board_width)), i)
+                    square_prob.reshape(self.board_height, self.board_width)), i)
+                final_equi_mcts_prob = np.flipud(equi_mcts_prob).flatten()
                 extend_data.append((equi_state,
-                                    np.flipud(equi_mcts_prob).flatten(),
+                                    np.append(final_equi_mcts_prob, stop_prob),
                                     winner))
                 # flip horizontally
                 equi_state = np.fliplr(equi_state)
                 equi_mcts_prob = np.fliplr(equi_mcts_prob)
+                final_equi_mcts_prob = np.flipud(equi_mcts_prob).flatten()
                 extend_data.append((equi_state,
-                                    np.flipud(equi_mcts_prob).flatten(),
+                                    np.append(final_equi_mcts_prob, stop_prob),
                                     winner))
         return extend_data
 
@@ -79,7 +84,7 @@ class TrainPipeline:
         """collect self-play data for training"""
         for i in trange(n_games, ncols=80):
             winner, play_data = self.game.start_self_play(self.mcts_player,
-                                                          temp=self.temp)
+                                                          temp=self.temp, shown=False)
             play_data = list(play_data)[:]
             # augment the data
             play_data = self.get_equi_data(play_data)
@@ -104,12 +109,7 @@ class TrainPipeline:
                                       n_playout=self.n_playout)
 
         win_cnt = defaultdict(int)
-        for i in range(n_games):
-            winner = self.game.play_a_game(current_mcts_player,
-                                           best_mcts_player,
-                                           start_player=i % 2,
-                                           shown=False)
-            win_cnt[winner] += 1
+        win_cnt[1], win_cnt[-1], win_cnt[0] = self.game.play_games(current_mcts_player, best_mcts_player, n_games)
         win_ratio = 1.0 * (win_cnt[1] + 0.5 * win_cnt[0]) / n_games
         print("num_playouts:{}, win: {}, lose: {}, tie:{}".format(
             self.pure_mcts_playout_num,
@@ -132,12 +132,7 @@ class TrainPipeline:
         pure_mcts_player = MCT_Pure_Player(c_puct=5,
                                            n_playout=self.pure_mcts_playout_num)
         win_cnt = defaultdict(int)
-        for i in trange(n_games):
-            winner = self.game.play_a_game(current_mcts_player,
-                                           pure_mcts_player,
-                                           start_player=i % 2,
-                                           shown=False)
-            win_cnt[winner] += 1
+        win_cnt[1], win_cnt[-1], win_cnt[0] = self.game.play_games(current_mcts_player, pure_mcts_player, n_games)
         win_ratio = 1.0 * (win_cnt[1] + 0.5 * win_cnt[0]) / n_games
         print("num_playouts:{}, win: {}, lose: {}, tie:{}".format(
             self.pure_mcts_playout_num,
@@ -162,9 +157,10 @@ class TrainPipeline:
                 if (i + 1) % self.check_freq == 0:
                     print("current self-play game: {}".format(i + 1))
                     self.policy_value_net.save_checkpoint(self.checkPointPath)
-                    if ((i + 1) // self.check_freq) % 2 != 0:
+                    # if ((i + 1) // self.check_freq) % 2 != 0:
+                    if (i + 1) // self.check_freq == 1:     # 第一次用纯蒙特卡罗
                         win_ratio = self.evaluate_with_pure(i + 1)
-                    else:
+                    else:   # 后续和自己比较
                         win_ratio = self.evaluate_with_best(i+1)
                     if win_ratio > self.best_win_ratio:
                         print("New best policy!!!!!!!!")

@@ -9,18 +9,18 @@ class Board:
     def getBoardSize(self):
         return self.width, self.width
 
-    # TODO: +1 ？
+    # +1 !!! 黑白棋不能下可以pass！！！
     def getActionSize(self):
         # return number of actions
-        return self.width * self.width
+        return self.width * self.width + 1
 
     def getState(self):
         return np.copy(self.board)
 
-    def reset_board(self, width=8):
+    def reset_board(self, width=8, start_player=0):
         self.board = np.zeros((width, width), dtype=np.int)
         self.players = [-1, 1]
-        self.current_player = self.players[0]  # start player
+        self.current_player = self.players[start_player]  # start player
         self.board[3, 3] = 1
         self.board[3, 4] = -1
         self.board[4, 3] = -1
@@ -43,6 +43,9 @@ class Board:
         if move not in self.possible_moves():
             raise ValueError("Invalid move")
         if x == -1 and y == -1:
+            # print(str(self.current_player) + "pass")
+            self.current_player = self.get_opponent()  # 换边
+            self.availables = self.get_valid_moves()  # 注意要在换边之后
             return
         self.board[x, y] = side
         self.flip(x, y, side)
@@ -55,8 +58,13 @@ class Board:
             return is_over, 0
         return is_over, self.get_winner()
 
+    # 要黑白两方都没有棋下才行！
     def is_game_over(self):
-        return len(self.possible_moves()) == 0
+        for i in range(8):
+            for j in range(8):
+                if self.board[i, j] == 0 and (self.valid_flip(i, j, -1) or self.valid_flip(i, j, 1)):
+                    return False
+        return True
 
     def get_winner(self):
         t = np.sum(self.board)
@@ -73,7 +81,7 @@ class Board:
             for j in range(self.width):
                 if self.board[i, j] == 0 and self.valid_flip(i, j, side):
                     moves.append(Board.location_to_move((i, j)))
-        return moves
+        return moves if moves else [self.width * self.width]
 
     def possible_moves(self):
         return self.availables
@@ -124,6 +132,7 @@ class Board:
             ty += dy
 
     def print_board(self):
+        print()
         print(" " * 2, end="")
         for x in range(self.width):
             print("{0:4}".format(x), end='')

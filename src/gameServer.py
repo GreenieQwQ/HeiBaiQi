@@ -25,7 +25,7 @@ class GameServer:
     # 开始游戏
     def play_a_game(self, player1, player2, start_player=0, shown=True):
         # 重启盘面
-        self.board.reset_board()
+        self.board.reset_board(start_player=start_player)
 
         # 设置player
         p1, p2 = self.board.players
@@ -44,7 +44,7 @@ class GameServer:
             if end:
                 if shown:
                     if winner is not None:
-                        print("Game end. Winner is", players[winner])
+                        print("Game end. Winner is", winner)
                     else:
                         print("Game end. Tie")
                 return winner
@@ -57,7 +57,7 @@ class GameServer:
                 self.graphic()
 
     # 使用蒙特卡洛player自己和自己下棋 并且为训练记录(s, a, v)
-    def start_self_play(self, player: MCTSPlayer, is_shown=False, temp=1e-3):
+    def start_self_play(self, player: MCTSPlayer, shown=False, temp=1e-3):
         self.board.reset_board()
         states, mcts_probs, current_players = [], [], []
         while True:
@@ -70,7 +70,7 @@ class GameServer:
             current_players.append(self.board.current_player)
             # perform a move
             self.board.do_move(move)
-            if is_shown:
+            if shown:
                 self.graphic()
             end, winner = self.board.game_end()
             if end:
@@ -81,9 +81,62 @@ class GameServer:
                     v[np.array(current_players) != winner] = -1.0
                 # reset MCTS root node
                 player.reset_player()
-                if is_shown:
+                if shown:
                     if winner != -1:
                         print("Game end. Winner is player:", winner)
                     else:
                         print("Game end. Tie")
                 return winner, zip(states, mcts_probs, v)
+
+    # 开始多局游戏——player1 开始 num / 2局游戏 player2 开始num / 2局游戏
+    # 输出：oneWon——player1赢、twoWon——player2赢、draw——平局的个数
+    def play_games(self, player1, player2, num, shown=False):
+        eps_time = AverageMeter()
+        bar = Bar('Arena.playGames', max=num)
+        end = time.time()
+        eps = 0
+        maxeps = int(num)
+
+        num = int(num / 2)
+        oneWon = 0
+        twoWon = 0
+        draws = 0
+        for _ in range(num):
+            self.board.reset_board()
+            gameResult = self.play_a_game(player1, player2, shown=shown)
+            if gameResult == -1:
+                oneWon += 1
+            elif gameResult == 1:
+                twoWon += 1
+            else:
+                draws += 1
+            # bookkeeping + plot progress
+            eps += 1
+            eps_time.update(time.time() - end)
+            end = time.time()
+            bar.suffix = '({eps}/{maxeps}) Winrate: {wr}%% | Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
+                eps=eps, maxeps=maxeps, et=eps_time.avg, total=bar.elapsed_td, eta=bar.eta_td,
+                wr=int(100 * (oneWon + 0.5 * draws) / (oneWon + twoWon + draws)))
+            bar.next()
+
+        for _ in range(num):
+            gameResult = self.play_a_game(player2, player1, shown=shown)
+            if gameResult == 1:
+                oneWon += 1
+            elif gameResult == -1:
+                twoWon += 1
+            else:
+                draws += 1
+            # bookkeeping + plot progress
+            eps += 1
+            eps_time.update(time.time() - end)
+            end = time.time()
+            bar.suffix = '({eps}/{maxeps}) Winrate: {wr}%% | Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
+                eps=eps, maxeps=maxeps, et=eps_time.avg, total=bar.elapsed_td, eta=bar.eta_td,
+                wr=int(100 * (oneWon + 0.5 * draws) / (oneWon + twoWon + draws)))
+            bar.next()
+
+        bar.update()
+        bar.finish()
+
+        return oneWon, twoWon, draws
