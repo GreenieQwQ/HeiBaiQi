@@ -14,6 +14,9 @@ class Board:
         # return number of actions
         return self.width * self.width + 1
 
+    def getState(self):
+        return np.copy(self.board)
+
     def reset_board(self, width=8):
         self.board = np.zeros((width, width), dtype=np.int)
         self.players = [-1, 1]

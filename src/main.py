@@ -1,17 +1,20 @@
 from gameServer import GameServer
+from NetWrapper import PolicyNet
+from mct_player import MCTSPlayer
 from players import *
 
 def run():
+    model_path = '../data/bestModel'
     try:
         human1 = RandomPlayer()
         human2 = RandomPlayer()
-        game = GameServer(human1, human2)
+        game = GameServer()
 
         # ############### human VS AI ###################
         # load the trained policy_value_net in either Theano/Lasagne, PyTorch or TensorFlow
 
-        # best_policy = PolicyValueNet(width, height, model_file = model_file)
-        # mcts_player = MCTSPlayer(best_policy.policy_value_fn, c_puct=5, n_playout=400)
+        best_policy = PolicyNet(game).load_checkpoint(model_path)
+        mcts_player = MCTSPlayer(best_policy.policy_value_fn, c_puct=5, n_playout=400)
 
         # load the provided model (trained in Theano/Lasagne) into a MCTS player written in pure numpy
         # try:
@@ -31,8 +34,8 @@ def run():
 
 
         # set start_player=0 for human first
-        # game.start_play()
-        game.play_games(num=100)
+        game.play_a_game(human1, mcts_player)
+        # game.play_games(num=100)
     except KeyboardInterrupt:
         print('\n\r\n\rQuit.')
 
