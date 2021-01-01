@@ -5,6 +5,7 @@ class Board:
     def __init__(self, width=8):
         self.width = width
         self.reset_board(self.width)
+        self.availables = self.get_valid_moves()
 
     def getBoardSize(self):
         return self.width, self.width
@@ -46,6 +47,7 @@ class Board:
         self.board[x, y] = side
         self.flip(x, y, side)
         self.current_player = self.get_opponent()  # 换边
+        self.availables = self.get_valid_moves()    # 注意要在换边之后
 
     def game_end(self):
         is_over = self.is_game_over()
@@ -64,7 +66,7 @@ class Board:
             return -1
         return 0
 
-    def possible_moves(self):
+    def get_valid_moves(self):
         side = self.get_current_player()
         moves = []
         for i in range(self.width):
@@ -72,6 +74,9 @@ class Board:
                 if self.board[i, j] == 0 and self.valid_flip(i, j, side):
                     moves.append(Board.location_to_move((i, j)))
         return moves
+
+    def possible_moves(self):
+        return self.availables
 
     def valid_flip(self, x, y, side):
         for dx in range(-1, 2):

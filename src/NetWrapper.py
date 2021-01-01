@@ -25,7 +25,7 @@ device = torch.device('cpu')
 
 class PolicyNet:
     def __init__(self, game):
-        self.nnet = OthelloNet(game, num_channels=args.num_channels)
+        self.nnet = OthelloNet(game, num_channels=args.num_channels, dropout=args.dropout)
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
         self.optimizer = optim.Adam(

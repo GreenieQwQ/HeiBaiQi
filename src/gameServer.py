@@ -12,6 +12,12 @@ class GameServer:
     def __init__(self, **kwargs):
         self.board = Board()
 
+    def getBoardSize(self):
+        return self.board.getBoardSize()
+
+    def getActionSize(self):
+        return self.board.getActionSize()
+
     # 将棋盘打印
     def graphic(self):
         self.board.print_board()

@@ -151,7 +151,7 @@ class MCTS(object):
         else:
             # If no break from the loop, issue a warning.
             print("WARNING: rollout reached move limit")
-        if winner == -1:  # tie
+        if winner == 0:  # tie
             return 0
         else:
             return 1 if winner == player else -1

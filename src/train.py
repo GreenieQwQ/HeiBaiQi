@@ -14,6 +14,7 @@ from NetWrapper import PolicyNet
 from mct_player import MCTSPlayer
 from mcts_pure import MCT_Pure_Player
 from tensorboardX import SummaryWriter
+from tqdm import trange
 
 
 class TrainPipeline:
@@ -75,7 +76,7 @@ class TrainPipeline:
     # 自己下n次棋 并且通过数据增强获取(s,a,v)
     def collect_selfplay_data(self, n_games=1):
         """collect self-play data for training"""
-        for i in range(n_games):
+        for i in trange(n_games):
             winner, play_data = self.game.start_self_play(self.mcts_player,
                                                           temp=self.temp)
             play_data = list(play_data)[:]
