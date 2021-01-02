@@ -18,7 +18,7 @@ from tqdm import trange
 
 
 class TrainPipeline:
-    def __init__(self, model_path=None, **kwargs):
+    def __init__(self, **kwargs):
         # params of the board and the game
         self.game = GameServer()
         self.board_width, self.board_height = self.game.getBoardSize()
@@ -48,6 +48,11 @@ class TrainPipeline:
         self.bestModelPath = kwargs.get('bestPath', '../data/bestModel')
         self.checkPointPath = kwargs.get('checkPath', '../data/checkpoint')
 
+        # 加载模型
+        loadPath = kwargs.get('loadPath', None)
+        if loadPath:
+            self.policy_value_net.load_checkpoint(loadPath)
+
     # 数据增强 因为盘面旋转相等
     def get_equi_data(self, play_data):
         """augment the data set by rotation and flipping
@@ -66,14 +71,14 @@ class TrainPipeline:
                 equi_state = np.rot90(state, i)
                 equi_mcts_prob = np.rot90(np.flipud(
                     square_prob.reshape(self.board_height, self.board_width)), i)
-                final_equi_mcts_prob = np.flipud(equi_mcts_prob).flatten()
+                final_equi_mcts_prob = np.flipud(equi_mcts_prob).flatten()  # 为了加上第65个元素单独列出
                 extend_data.append((equi_state,
                                     np.append(final_equi_mcts_prob, stop_prob),
                                     winner))
                 # flip horizontally
                 equi_state = np.fliplr(equi_state)
                 equi_mcts_prob = np.fliplr(equi_mcts_prob)
-                final_equi_mcts_prob = np.flipud(equi_mcts_prob).flatten()
+                final_equi_mcts_prob = np.flipud(equi_mcts_prob).flatten()  # 为了加上第65个元素单独列出
                 extend_data.append((equi_state,
                                     np.append(final_equi_mcts_prob, stop_prob),
                                     winner))
@@ -149,9 +154,14 @@ class TrainPipeline:
         try:
             for i in range(self.game_batch_num):
                 self.collect_selfplay_data(self.play_batch_size)
-                print(f"Game i:{i + 1}")
+                iteration = i + 1   # 迭代的次数
+                print(f"Game i:{iteration}")
                 if len(self.data_buffer) > self.batch_size * 2:
-                    loss, entropy = self.policy_update()
+                    l_pi, l_v = self.policy_update()
+                    # 记录流程
+                    self.writer.add_scalar('loss/policy', l_pi, iteration)
+                    self.writer.add_scalar('loss/value', l_v, iteration)
+                    self.writer.add_scalar('loss/total', l_pi + l_v, iteration)
                 # check the performance of the current model,
                 # and save the model params
                 if (i + 1) % self.check_freq == 0:
@@ -173,8 +183,10 @@ class TrainPipeline:
                             self.best_win_ratio = 0.0
         except KeyboardInterrupt:
             print('\n\rquit')
+        finally:
+            self.writer.close()
 
 
 if __name__ == '__main__':
-    training_pipeline = TrainPipeline()
+    training_pipeline = TrainPipeline(loadPath='../data/checkpoint')
     training_pipeline.run()
