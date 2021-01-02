@@ -10,6 +10,7 @@ import os
 import numpy as np
 import torch
 import time
+import argparse
 from collections import defaultdict, deque
 from gameServer import GameServer
 from NetWrapper import PolicyNet
@@ -29,11 +30,12 @@ class TrainPipeline:
         self.n_playout = kwargs.get('n_playout', 400)  # num of simulations for each move
         self.c_puct = kwargs.get('c_puct', 5)
         self.buffer_size = kwargs.get('buffer_size', 10000)
-        self.batch_size = kwargs.get('batch_size', 256)  # mini-batch size for training
+        self.batch_size = kwargs.get('batch_size', 512)  # mini-batch size for training
         self.data_buffer = deque(maxlen=self.buffer_size)
         self.play_per_iter = kwargs.get('play_per_iter', 2)  # 一次增加数据下多少次棋
-        self.check_freq = kwargs.get('check_freq', 50)  # 多少次迭代evaluate
-        self.epoch_num = kwargs.get('epoch_num', 3000)  # 训练的迭代次数
+        self.check_freq = kwargs.get('check_freq', 30)  # 多少次迭代evaluate
+        self.epoch_num = kwargs.get('epoch_num', 6000)  # 训练的迭代次数
+        self.train_steps = kwargs.get('train_steps', 500)   # 一个epoch在batch上迭代的次数
 
         self.beaten_pure_mct = False
         self.best_win_ratio = 0.0
@@ -41,24 +43,28 @@ class TrainPipeline:
         # the opponent to evaluate the trained policy
         self.pure_mcts_playout_num = 1000
 
-        self.policy_value_net = PolicyNet(self.game)
+        self.lr = kwargs.get('lr', 0.005)
+        self.dropout = kwargs.get('dropout', 0.3)
+
+        self.policy_value_net = PolicyNet(self.game, lr=self.lr, dropout=self.dropout)
         self.mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn,
                                       c_puct=self.c_puct,
                                       n_playout=self.n_playout,
                                       is_selfplay=True)
 
-        self.id = time.strftime("%Y_%H_%M_%S", time.localtime())
-        self.log_dir = kwargs.get('log_dir', '../data/' + self.id + '/record')
+        self.id = 'model_' + time.strftime("%Y_%H_%M_%S", time.localtime())
+        self.train_dir = '../data/' + self.id
+        self.log_dir = kwargs.get('log_dir', self.train_dir + '/record')
         self.writer = SummaryWriter(log_dir=self.log_dir)
 
-        self.bestModelPath = kwargs.get('bestPath', '../data/' + self.id + '/bestModel')
-        self.checkPointPath = kwargs.get('checkPath', '../data/' + self.id + '/checkpoint')
+        self.bestModelPath = kwargs.get('bestPath', self.train_dir + '/bestModel')
+        self.checkPointPath = kwargs.get('checkPath', self.train_dir + '/checkpoint')
 
         # 加载模型和训练状态
         loadPath = kwargs.get('loadPath', None)
         if loadPath:
             self.policy_value_net.load_checkpoint(loadPath)
-            self.loadTrainState(loadPath)
+            # self.loadTrainState(loadPath)
 
     # 记录训练的state
     def saveTrainState(self, folder, filename='state.pth.tar'):
@@ -90,7 +96,7 @@ class TrainPipeline:
         extend_data = []
         for state, mcts_porb, winner in play_data:
             # 注意：先提取出第65个元素
-            stop_prob = mcts_porb[self.board_width * self.board_width]
+            stop_prob = mcts_porb[-1]
             square_prob = mcts_porb[:-1]
             for i in [1, 2, 3, 4]:
                 # print(state)
@@ -188,9 +194,9 @@ class TrainPipeline:
                     self.writer.add_scalar('loss/total', l_pi + l_v, iteration)
                 # check the performance of the current model,
                 # and save the model params
+                self.policy_value_net.save_checkpoint(self.checkPointPath)
                 if (i + 1) % self.check_freq == 0:
                     print("current self-play game: {}".format(i + 1))
-                    self.policy_value_net.save_checkpoint(self.checkPointPath)
                     # if ((i + 1) // self.check_freq) % 2 != 0:
                     if not self.beaten_pure_mct:  # 未完全胜利
                         win_ratio = self.evaluate_with_pure(i + 1)
@@ -220,5 +226,14 @@ class TrainPipeline:
 
 
 if __name__ == '__main__':
-    training_pipeline = TrainPipeline(loadPath='../data/bestModel')
+    parser = argparse.ArgumentParser(description='AlphaZero Othello')
+    parser.add_argument('--loadDir', type=str, default='../data/model_2021_11_58_13/checkpoint',
+                        help="checkpoint's directory")
+    parser.add_argument('--lr', type=float, default=0.01,
+                        help='learning rate')
+    parser.add_argument('--cf', type=int, default=60,
+                        help='check freq')
+
+    args = parser.parse_args()
+    training_pipeline = TrainPipeline(loadPath=args.loadDir, lr=args.lr)
     training_pipeline.run()

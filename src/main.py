@@ -1,15 +1,24 @@
 from gameServer import GameServer
 from NetWrapper import PolicyNet
 from mct_player import MCTSPlayer
+from mcts_pure import MCT_Pure_Player
+from NetWrapper import PolicyNet
 from players import *
 
-def run():
-    model_path = '../data/bestModel'
-    try:
-        human1 = Human()
-        human2 = RandomPlayer()
-        game = GameServer()
 
+def run():
+    model_path = '../data/model_2021_11_58_13/checkpoint'
+    try:
+        human1 = RandomPlayer()
+        # human2 = RandomPlayer()
+        # human2 = MCT_Pure_Player(c_puct=5,
+        #                          n_playout=1000)
+
+        game = GameServer()
+        policy_value_net = PolicyNet(game).load_checkpoint(model_path)
+        human2 = MCTSPlayer(c_puct=5,
+                            n_playout=400,
+                            policy_value_function=policy_value_net.policy_value_fn)
         # ############### human VS AI ###################
         # load the trained policy_value_net in either Theano/Lasagne, PyTorch or TensorFlow
 
@@ -32,10 +41,9 @@ def run():
 
         # human player, input your move in the format: 2,3
 
-
         # set start_player=0 for human first
         # game.play_a_game(human1, human2, start_player=1)
-        game.play_games(mcts_player, mcts_player, num=100)
+        print(game.play_games(human1, human2, num=20, shown=False))
     except KeyboardInterrupt:
         print('\n\r\n\rQuit.')
 
