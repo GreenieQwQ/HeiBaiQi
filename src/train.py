@@ -6,8 +6,9 @@ An implementation of the training pipeline of AlphaZero for Gomoku
 """
 
 from __future__ import print_function
-import random
+import os
 import numpy as np
+import torch
 from collections import defaultdict, deque
 from gameServer import GameServer
 from NetWrapper import PolicyNet
@@ -23,15 +24,17 @@ class TrainPipeline:
         self.game = GameServer()
         self.board_width, self.board_height = self.game.getBoardSize()
         # training params
-        self.temp = 1.0  # the temperature param
-        self.n_playout = 400  # num of simulations for each move
-        self.c_puct = 5
-        self.buffer_size = 10000
-        self.batch_size = 256  # mini-batch size for training
+        self.temp = kwargs.get('temp', 1.0)  # the temperature param
+        self.n_playout = kwargs.get('n_playout', 400)  # num of simulations for each move
+        self.c_puct = kwargs.get('c_puct', 5)
+        self.buffer_size = kwargs.get('buffer_size', 10000)
+        self.batch_size = kwargs.get('batch_size', 256)  # mini-batch size for training
         self.data_buffer = deque(maxlen=self.buffer_size)
-        self.play_batch_size = 2  # 一次增加数据下多少次棋
-        self.check_freq = 50
-        self.game_batch_num = 3000  # 总共下多少次棋来训练
+        self.play_per_iter = kwargs.get('play_per_iter', 2)  # 一次增加数据下多少次棋
+        self.check_freq = kwargs.get('check_freq', 50)  # 多少次迭代evaluate
+        self.epoch_num = kwargs.get('epoch_num', 3000)  # 训练的迭代次数
+
+        self.beaten_pure_mct = False
         self.best_win_ratio = 0.0
         # num of simulations used for the pure mcts, which is used as
         # the opponent to evaluate the trained policy
@@ -47,11 +50,35 @@ class TrainPipeline:
 
         self.bestModelPath = kwargs.get('bestPath', '../data/bestModel')
         self.checkPointPath = kwargs.get('checkPath', '../data/checkpoint')
+        self.state_path = os.path.join(self.bestModelPath, 'state.pth.tar')
 
-        # 加载模型
+        # 加载模型和训练状态
         loadPath = kwargs.get('loadPath', None)
         if loadPath:
             self.policy_value_net.load_checkpoint(loadPath)
+            self.loadTrainState(loadPath)
+
+    # 记录训练的state
+    def saveTrainState(self, folder, filename='state.pth.tar'):
+        filepath = os.path.join(folder, filename)
+        if not os.path.isdir(folder):
+            os.makedirs(folder)
+        torch.save({
+            'best_win_ratio': self.best_win_ratio,
+            'beaten_pure_mct': self.beaten_pure_mct,
+            'pure_mcts_playout_num': self.pure_mcts_playout_num
+        }, filepath)
+        return self
+
+    def loadTrainState(self, folder, filename='state.pth.tar'):
+        filepath = os.path.join(folder, filename)
+        if not os.path.isfile(filepath):
+            raise ("No model in path {}".format(filepath))
+        state_dict = torch.load(filepath)
+        self.best_win_ratio = state_dict['best_win_ratio']
+        self.beaten_pure_mct = state_dict['beaten_pure_mct']
+        self.pure_mcts_playout_num = state_dict['pure_mcts_playout_num']
+        return self
 
     # 数据增强 因为盘面旋转相等
     def get_equi_data(self, play_data):
@@ -97,14 +124,11 @@ class TrainPipeline:
 
     # 随机选取sample进行训练
     def policy_update(self):
-        """update the policy-value net"""
         loss, entropy = self.policy_value_net.train(self.data_buffer, self.batch_size)
         return loss, entropy
 
+    # 和自己比较
     def evaluate_with_best(self, iteration, n_games=10):
-        """
-            Evaluate the trained policy by playing against the best past MCTS player
-        """
         current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn,
                                          c_puct=self.c_puct,
                                          n_playout=self.n_playout)
@@ -116,21 +140,18 @@ class TrainPipeline:
         win_cnt = defaultdict(int)
         win_cnt[1], win_cnt[-1], win_cnt[0] = self.game.play_games(current_mcts_player, best_mcts_player, n_games)
         win_ratio = 1.0 * (win_cnt[1] + 0.5 * win_cnt[0]) / n_games
-        print("num_playouts:{}, win: {}, lose: {}, tie:{}".format(
+        print("Self Play: num_playouts:{}, win: {}, lose: {}, tie:{}".format(
             self.pure_mcts_playout_num,
             win_cnt[1], win_cnt[-1], win_cnt[0]))
 
-        self.writer.add_scalar('win_rate/p1 vs p2',
+        self.writer.add_scalar('win_rate_self/p1 vs p2',
                                win_ratio, iteration)
-        self.writer.add_scalar('win_rate/draws', win_cnt[0] / n_games, iteration)
+        self.writer.add_scalar('win_rate_self/draws', win_cnt[0] / n_games, iteration)
 
         return win_ratio
 
+    # 和纯蒙特卡罗法比较
     def evaluate_with_pure(self, iteration, n_games=10):
-        """
-        Evaluate the trained policy by playing against the pure MCTS player
-        Note: this is only for monitoring the progress of training
-        """
         current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn,
                                          c_puct=self.c_puct,
                                          n_playout=self.n_playout)
@@ -139,22 +160,22 @@ class TrainPipeline:
         win_cnt = defaultdict(int)
         win_cnt[1], win_cnt[-1], win_cnt[0] = self.game.play_games(current_mcts_player, pure_mcts_player, n_games)
         win_ratio = 1.0 * (win_cnt[1] + 0.5 * win_cnt[0]) / n_games
-        print("num_playouts:{}, win: {}, lose: {}, tie:{}".format(
+        print("Pure MCT: num_playouts:{}, win: {}, lose: {}, tie:{}".format(
             self.pure_mcts_playout_num,
             win_cnt[1], win_cnt[-1], win_cnt[0]))
 
-        self.writer.add_scalar('win_rate/p1 vs p2',
+        self.writer.add_scalar('win_rate_pure/p1 vs p2',
                                win_ratio, iteration)
-        self.writer.add_scalar('win_rate/draws', win_cnt[0] / n_games, iteration)
+        self.writer.add_scalar('win_rate_pure/draws', win_cnt[0] / n_games, iteration)
 
         return win_ratio
 
+    # 运行pipeline
     def run(self):
-        """run the training pipeline"""
         try:
-            for i in range(self.game_batch_num):
-                self.collect_selfplay_data(self.play_batch_size)
-                iteration = i + 1   # 迭代的次数
+            for i in range(self.epoch_num):
+                self.collect_selfplay_data(self.play_per_iter)
+                iteration = i + 1  # 迭代的次数
                 print(f"Game i:{iteration}")
                 if len(self.data_buffer) > self.batch_size * 2:
                     l_pi, l_v = self.policy_update()
@@ -168,19 +189,27 @@ class TrainPipeline:
                     print("current self-play game: {}".format(i + 1))
                     self.policy_value_net.save_checkpoint(self.checkPointPath)
                     # if ((i + 1) // self.check_freq) % 2 != 0:
-                    if (i + 1) // self.check_freq == 1:     # 第一次用纯蒙特卡罗
+                    if not self.beaten_pure_mct:  # 未完全胜利
                         win_ratio = self.evaluate_with_pure(i + 1)
-                    else:   # 后续和自己比较
-                        win_ratio = self.evaluate_with_best(i+1)
+                    else:  # 完全胜利纯蒙特卡洛 后续和自己比较
+                        win_ratio = self.evaluate_with_best(i + 1)
                     if win_ratio > self.best_win_ratio:
                         print("New best policy!!!!!!!!")
                         self.best_win_ratio = win_ratio
-                        # update the best_policy
-                        self.policy_value_net.save_checkpoint(self.bestModelPath)
+                        # 提升纯蒙特卡罗的强度
                         if (self.best_win_ratio == 1.0 and
                                 self.pure_mcts_playout_num < 5000):
                             self.pure_mcts_playout_num += 1000
                             self.best_win_ratio = 0.0
+                        elif self.pure_mcts_playout_num == 5000:
+                            self.beaten_pure_mct = True     # 进无可进
+                        # endif
+                        # update the best_policy
+                        self.policy_value_net.save_checkpoint(self.bestModelPath)
+                        self.saveTrainState(self.bestModelPath)
+                    # endif
+                # endif
+            # endfor
         except KeyboardInterrupt:
             print('\n\rquit')
         finally:
@@ -188,5 +217,5 @@ class TrainPipeline:
 
 
 if __name__ == '__main__':
-    training_pipeline = TrainPipeline(loadPath='../data/checkpoint')
+    training_pipeline = TrainPipeline(loadPath='../data/bestModel')
     training_pipeline.run()
