@@ -150,8 +150,8 @@ class Board:
     @staticmethod
     def piece_map(x):
         return {
-            1: 'O',
-            -1: 'X',
+            1: 'W',
+            -1: 'B',
             0: '-',
         }[x]
 
