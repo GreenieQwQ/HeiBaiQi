@@ -16,10 +16,8 @@ class BasePlayer:
 
 class RandomPlayer(BasePlayer):
     def get_action(self, board):
-        try:
-            return random.choice(board.possible_moves())
-        except IndexError:
-            pass
+        return random.choice(board.possible_moves())
+
 
     def __str__(self):
         return "RandomPlayer {}".format(self.player)
