@@ -6,7 +6,10 @@ class BasePlayer:
         self.player = p
 
     def get_action(self, board):
-        return board.possible_moves()[0]
+        try:
+            return board.possible_moves()[0]
+        except IndexError:
+            pass
 
     def statistics(self):
         pass
@@ -27,7 +30,7 @@ class Human(BasePlayer):
         # 无可下的子时
         if not board.possible_moves():
             print("No move for you!")
-            return None
+            return (-1, -1)
         try:
             location = input("Your move: ")
             # location为int的列表[i, j]

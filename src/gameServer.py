@@ -91,7 +91,7 @@ class GameServer:
 
     # 开始多局游戏——player1 开始 num / 2局游戏 player2 开始num / 2局游戏
     # 输出：oneWon——player1赢、twoWon——player2赢、draw——平局的个数
-    def play_games(self, player1, player2, num, shown=False):
+    def play_games(self, player1, player2, num=10, shown=False):
         eps_time = AverageMeter()
         bar = Bar('Arena.playGames', max=num)
         end = time.time()
