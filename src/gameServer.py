@@ -76,7 +76,7 @@ class GameServer:
             if end:
                 # winner from the perspective of the current player of each state
                 v = np.zeros(len(current_players))
-                if winner != 0:     # 平局
+                if winner != 0:  # 平局
                     v[np.array(current_players) == winner] = 1.0
                     v[np.array(current_players) != winner] = -1.0
                 # reset MCTS root node

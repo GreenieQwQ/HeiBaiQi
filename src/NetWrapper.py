@@ -8,25 +8,19 @@ from utils import *
 from progress.bar import Bar
 from board import Board
 
-class Args:
-    lr = 0.02
-    dropout = 0.3
-    num_channels = 512
 
-
-args = Args
 # Device configuration
-# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 
 class PolicyNet:
-    def __init__(self, game):
-        self.nnet = OthelloNet(game, num_channels=args.num_channels, dropout=args.dropout).to(device)
+    def __init__(self, game, **kwargs):
+        self.nnet = OthelloNet(game, num_channels=kwargs.get('num_channels', 512), dropout=kwargs.get('dropout', 0.3)).to(device)
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
         self.optimizer = optim.Adam(
-            self.nnet.parameters(), lr=args.lr)
+            self.nnet.parameters(), lr=kwargs.get('lr', 0.005))
         # self.scheduler = optim.lr_scheduler.MultiStepLR(
         #    self.optimizer, milestones=[200,400], gamma=0.1)
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, cooldown=10)
@@ -37,7 +31,7 @@ class PolicyNet:
         # 随机打乱batch
         dataset = SAV_Dataset(batches)
         dataloader = SAV_DataLoader(dataset, device, batch_size=batch_size, shuffle=True)
-        dataloader.shuffle()
+
 
         self.nnet.train()
 
@@ -51,6 +45,7 @@ class PolicyNet:
         bar = Bar(f'Training Net', max=train_steps)
         current_step = 0
         while current_step < train_steps:
+            dataloader.shuffle()
             for batch_idx, batch in enumerate(dataloader):
                 if current_step == train_steps:
                     break
