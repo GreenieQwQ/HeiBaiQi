@@ -9,6 +9,7 @@ from __future__ import print_function
 import os
 import numpy as np
 import torch
+import time
 from collections import defaultdict, deque
 from gameServer import GameServer
 from NetWrapper import PolicyNet
@@ -46,11 +47,12 @@ class TrainPipeline:
                                       n_playout=self.n_playout,
                                       is_selfplay=True)
 
-        self.writer = SummaryWriter(log_dir='../data/record')
+        self.id = time.strftime("%Y_%H_%M_%S", time.localtime())
+        self.log_dir = kwargs.get('log_dir', '../data/' + self.id + '/record')
+        self.writer = SummaryWriter(log_dir=self.log_dir)
 
-        self.bestModelPath = kwargs.get('bestPath', '../data/bestModel')
-        self.checkPointPath = kwargs.get('checkPath', '../data/checkpoint')
-        self.state_path = os.path.join(self.bestModelPath, 'state.pth.tar')
+        self.bestModelPath = kwargs.get('bestPath', '../data/' + self.id + '/bestModel')
+        self.checkPointPath = kwargs.get('checkPath', '../data/' + self.id + '/checkpoint')
 
         # 加载模型和训练状态
         loadPath = kwargs.get('loadPath', None)
