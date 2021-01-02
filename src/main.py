@@ -7,7 +7,7 @@ def run():
     model_path = '../data/bestModel'
     try:
         human1 = RandomPlayer()
-        human2 = RandomPlayer()
+        human2 = Human()
         game = GameServer()
 
         # ############### human VS AI ###################
