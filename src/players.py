@@ -6,10 +6,8 @@ class BasePlayer:
         self.player = p
 
     def get_action(self, board):
-        try:
-            return board.possible_moves()[0]
-        except IndexError:
-            pass
+        return board.possible_moves()[0]
+
 
     def statistics(self):
         pass
