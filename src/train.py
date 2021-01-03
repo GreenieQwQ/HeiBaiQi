@@ -91,7 +91,7 @@ class TrainPipeline:
     # 数据增强 因为盘面旋转相等
     def get_equi_data(self, play_data):
         """augment the data set by rotation and flipping
-        play_data: [(state, mcts_prob, winner_z), ..., ...]
+        play_data: [(state, mcts_prob, winner_z), ..., ...] (s, a, v)
         """
         extend_data = []
         for state, mcts_porb, winner in play_data:
@@ -129,6 +129,7 @@ class TrainPipeline:
             # augment the data
             play_data = self.get_equi_data(play_data)
             self.data_buffer.extend(play_data)
+            # 以上为采样过程
 
     # 随机选取sample进行训练
     def policy_update(self):
