@@ -7,7 +7,7 @@ from players import *
 
 
 def run():
-    model_path = '../data/model_2021_10_13_27/checkpoint'
+    model_path = '../data/model_01_03_21_14_58_17/checkpoint'
     try:
 
         human1 = RandomPlayer()
@@ -20,6 +20,7 @@ def run():
         human2 = MCTSPlayer(c_puct=5,
                             n_playout=400,
                             policy_value_function=policy_value_net.policy_value_fn)
+        # human2 = MCT_Pure_Player(c_puct=5,  n_playout=1000)
         # ############### human VS AI ###################
         # load the trained policy_value_net in either Theano/Lasagne, PyTorch or TensorFlow
 

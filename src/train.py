@@ -34,7 +34,7 @@ class TrainPipeline:
         self.batch_size = kwargs.get('batch_size', 512)  # mini-batch size for training
         self.data_buffer = deque(maxlen=self.buffer_size)
         self.play_per_iter = kwargs.get('play_per_iter', 1)  # 一次增加数据下多少次棋
-        self.check_freq = kwargs.get('check_freq', 60)  # 多少次迭代evaluate
+        self.check_freq = kwargs.get('check_freq', 100)  # 多少次迭代evaluate
         self.epoch_num = kwargs.get('epoch_num', 6000)  # 训练的迭代次数
         self.train_steps = kwargs.get('train_steps', 500)   # 一个epoch在batch上迭代的次数
 
@@ -53,7 +53,7 @@ class TrainPipeline:
                                       n_playout=self.n_playout,
                                       is_selfplay=True)
 
-        self.id = 'model_' + time.strftime("%Y_%H_%M_%S", time.localtime())
+        self.id = 'model_' + time.strftime("%D_%H_%M_%S", time.localtime()).replace("/", "_")
         self.train_dir = '../data/' + self.id
         self.log_dir = kwargs.get('log_dir', self.train_dir + '/record')
         self.writer = SummaryWriter(log_dir=self.log_dir)
@@ -65,7 +65,7 @@ class TrainPipeline:
         loadPath = kwargs.get('loadPath', None)
         if loadPath:
             self.policy_value_net.load_checkpoint(loadPath)
-            # self.loadTrainState(loadPath)
+            self.loadTrainState(loadPath)
 
     # 记录训练的state
     def saveTrainState(self, folder, filename='state.pth.tar'):
@@ -75,14 +75,16 @@ class TrainPipeline:
         torch.save({
             'best_win_ratio': self.best_win_ratio,
             'beaten_pure_mct': self.beaten_pure_mct,
-            'pure_mcts_playout_num': self.pure_mcts_playout_num
+            'pure_mcts_playout_num': self.pure_mcts_playout_num,
+            'databuffer': self.data_buffer
         }, filepath)
         return self
 
     def loadTrainState(self, folder, filename='state.pth.tar'):
         filepath = os.path.join(folder, filename)
         if not os.path.isfile(filepath):
-            raise ("No model in path {}".format(filepath))
+            print("No state in path {}".format(filepath))
+            return self
         state_dict = torch.load(filepath)
         self.best_win_ratio = state_dict['best_win_ratio']
         self.beaten_pure_mct = state_dict['beaten_pure_mct']
@@ -216,6 +218,7 @@ class TrainPipeline:
                 self.policy_value_net.save_checkpoint(self.checkPointPath)
                 if (i + 1) % self.check_freq == 0:
                     print("current self-play game: {}".format(i + 1))
+                    self.saveTrainState(self.checkPointPath)
                     # if ((i + 1) // self.check_freq) % 2 != 0:
                     if not self.beaten_pure_mct:  # 未完全胜利
                         win_ratio = self.evaluate_with_pure(i + 1)
@@ -246,13 +249,13 @@ class TrainPipeline:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='AlphaZero Othello')
-    parser.add_argument('--loadDir', type=str, default='../data/model_2021_11_58_13/checkpoint',
+    parser.add_argument('--loadDir', type=str, default='../data/model_01_03_21_16_18_02/checkpoint',
                         help="checkpoint's directory")
     parser.add_argument('--lr', type=float, default=0.01,
                         help='learning rate')
-    parser.add_argument('--cf', type=int, default=60,
+    parser.add_argument('--cf', type=int, default=150,
                         help='check freq')
 
     args = parser.parse_args()
-    training_pipeline = TrainPipeline(loadPath=args.loadDir, lr=args.lr)
+    training_pipeline = TrainPipeline(loadPath=args.loadDir, lr=args.lr, check_freq=args.cf)
     training_pipeline.run()
