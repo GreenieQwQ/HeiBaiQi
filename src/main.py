@@ -7,7 +7,7 @@ from players import *
 
 
 def run():
-    model_path = '../data/model_2021_11_58_13/checkpoint'
+    model_path = '../data/model_2021_10_13_27/checkpoint'
     try:
 
         human1 = RandomPlayer()

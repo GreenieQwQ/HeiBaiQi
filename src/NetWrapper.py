@@ -136,7 +136,8 @@ class PolicyNet:
 
     # 均方误差
     def loss_v(self, targets, outputs):
-        return torch.sum((targets - outputs) ** 2) / targets.size()[0]
+        criterion = torch.nn.MSELoss()
+        return criterion(targets.view(1, -1), outputs.view(1, -1))
 
     def save_checkpoint(self, folder='../data/checkpoint', filename='checkpoint.pth.tar'):
         filepath = os.path.join(folder, filename)

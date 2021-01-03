@@ -18,6 +18,7 @@ from mct_player import MCTSPlayer
 from mcts_pure import MCT_Pure_Player
 from tensorboardX import SummaryWriter
 from tqdm import trange
+from players import RandomPlayer
 
 
 class TrainPipeline:
@@ -32,8 +33,8 @@ class TrainPipeline:
         self.buffer_size = kwargs.get('buffer_size', 10000)
         self.batch_size = kwargs.get('batch_size', 512)  # mini-batch size for training
         self.data_buffer = deque(maxlen=self.buffer_size)
-        self.play_per_iter = kwargs.get('play_per_iter', 2)  # 一次增加数据下多少次棋
-        self.check_freq = kwargs.get('check_freq', 30)  # 多少次迭代evaluate
+        self.play_per_iter = kwargs.get('play_per_iter', 1)  # 一次增加数据下多少次棋
+        self.check_freq = kwargs.get('check_freq', 60)  # 多少次迭代evaluate
         self.epoch_num = kwargs.get('epoch_num', 6000)  # 训练的迭代次数
         self.train_steps = kwargs.get('train_steps', 500)   # 一个epoch在batch上迭代的次数
 
@@ -155,6 +156,25 @@ class TrainPipeline:
         self.writer.add_scalar('win_rate_self/p1 vs p2',
                                win_ratio, iteration)
         self.writer.add_scalar('win_rate_self/draws', win_cnt[0] / n_games, iteration)
+
+        return win_ratio
+
+    # 和随机下棋的比较
+    def evaluate_with_random(self, iteration, n_games=10):
+        current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn,
+                                         c_puct=self.c_puct,
+                                         n_playout=self.n_playout)
+        random_player = RandomPlayer()
+        win_cnt = defaultdict(int)
+        win_cnt[1], win_cnt[-1], win_cnt[0] = self.game.play_games(current_mcts_player, random_player, n_games)
+        win_ratio = 1.0 * (win_cnt[1] + 0.5 * win_cnt[0]) / n_games
+        print("Random: num_playouts:{}, win: {}, lose: {}, tie:{}".format(
+            self.pure_mcts_playout_num,
+            win_cnt[1], win_cnt[-1], win_cnt[0]))
+
+        self.writer.add_scalar('win_rate_random/p1 vs p2',
+                               win_ratio, iteration)
+        self.writer.add_scalar('win_rate_random/draws', win_cnt[0] / n_games, iteration)
 
         return win_ratio
 
