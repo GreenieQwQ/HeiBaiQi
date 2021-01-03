@@ -1,8 +1,2 @@
-
-.idea/HeiBaiQi.iml
-.idea/inspectionProfiles/profiles_settings.xml
-.idea/misc.xml
-.idea/modules.xml
-.idea/vcs.xml
+.idea
 src/__pycache__
-.idea/workspace.xml
