@@ -132,6 +132,7 @@ class Board:
             ty += dy
 
     def print_board(self):
+        #print("possible move:", self.possible_moves())
         print()
         print(" " * 2, end="")
         for x in range(self.width):
@@ -141,6 +142,8 @@ class Board:
             print("{0:4d}".format(i), end='')
             for j in range(self.width):
                 p = Board.piece_map(self.board[i, j])
+                if self.location_to_move((i, j)) in self.possible_moves():
+                    p = '*'
                 print(p.center(4), end='')
             print()
 
