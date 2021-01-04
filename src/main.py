@@ -7,7 +7,7 @@ from players import *
 
 
 def run():
-    model_path = '../data/model_01_03_21_14_58_17/checkpoint'
+    model_path = '../data/model_01_03_21_22_21_34/checkpoint'
     try:
         human1 = RandomPlayer()
         # human2 = RandomPlayer()
@@ -15,16 +15,16 @@ def run():
         #                          n_playout=1000)
 
         game = GameServer()
-        policy_value_net = PolicyNet(game).load_checkpoint(model_path)
-        human2 = MCTSPlayer(c_puct=5,
-                            n_playout=400,
-                            policy_value_function=policy_value_net.policy_value_fn)
-        # human2 = MCT_Pure_Player(c_puct=5,  n_playout=1000)
+        # policy_value_net = PolicyNet(game).load_checkpoint(model_path)
+        # human2 = MCTSPlayer(c_puct=5,
+        #                     n_playout=400,
+        #                     policy_value_function=policy_value_net.policy_value_fn)
+        human2 = MCT_Pure_Player(c_puct=5,  n_playout=400)
         # ############### human VS AI ###################
         # load the trained policy_value_net in either Theano/Lasagne, PyTorch or TensorFlow
 
-        best_policy = PolicyNet(game).load_checkpoint(model_path)
-        mcts_player = MCTSPlayer(best_policy.policy_value_fn, c_puct=5, n_playout=400)
+        # best_policy = PolicyNet(game).load_checkpoint(model_path)
+        # mcts_player = MCTSPlayer(best_policy.policy_value_fn, c_puct=5, n_playout=400)
 
         # load the provided model (trained in Theano/Lasagne) into a MCTS player written in pure numpy
         # try:

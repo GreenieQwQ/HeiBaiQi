@@ -10,8 +10,8 @@ from board import Board
 
 
 # Device configuration
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-# device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 
 class PolicyNet:
@@ -19,8 +19,10 @@ class PolicyNet:
         self.nnet = OthelloNet(game, num_channels=kwargs.get('num_channels', 512), dropout=kwargs.get('dropout', 0.3)).to(device)
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
-        self.optimizer = optim.Adam(
-            self.nnet.parameters(), lr=kwargs.get('lr', 0.005))
+        # self.optimizer = optim.Adam(
+        #     self.nnet.parameters(), lr=kwargs.get('lr', 0.005))
+        self.optimizer = optim.SGD(
+            self.nnet.parameters(), lr=kwargs.get('lr', 0.005), momentum=0.9, weight_decay=1e-3)
         # self.scheduler = optim.lr_scheduler.MultiStepLR(
         #    self.optimizer, milestones=[200,400], gamma=0.1)
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, cooldown=10)

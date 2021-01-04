@@ -28,7 +28,7 @@ class TrainPipeline:
         self.board_width, self.board_height = self.game.getBoardSize()
         # training params
         self.temp = kwargs.get('temp', 1.0)  # the temperature param
-        self.n_playout = kwargs.get('n_playout', 400)  # num of simulations for each move
+        self.n_playout = kwargs.get('n_playout', 600)  # num of simulations for each move
         self.c_puct = kwargs.get('c_puct', 5)
         self.buffer_size = kwargs.get('buffer_size', 10000)
         self.batch_size = kwargs.get('batch_size', 512)  # mini-batch size for training
@@ -64,7 +64,7 @@ class TrainPipeline:
         # 加载模型和训练状态
         loadPath = kwargs.get('loadPath', None)
         if loadPath:
-            self.policy_value_net.load_checkpoint(loadPath)
+            # self.policy_value_net.load_checkpoint(loadPath)
             self.loadTrainState(loadPath)
 
     # 记录训练的state
@@ -89,6 +89,8 @@ class TrainPipeline:
         self.best_win_ratio = state_dict['best_win_ratio']
         self.beaten_pure_mct = state_dict['beaten_pure_mct']
         self.pure_mcts_playout_num = state_dict['pure_mcts_playout_num']
+        if 'databuffer' in state_dict:
+            self.data_buffer = state_dict['databuffer']
         return self
 
     # 数据增强 因为盘面旋转相等
@@ -219,7 +221,8 @@ class TrainPipeline:
                 self.policy_value_net.save_checkpoint(self.checkPointPath)
                 if (i + 1) % self.check_freq == 0:
                     print("current self-play game: {}".format(i + 1))
-                    self.saveTrainState(self.checkPointPath)
+                    self.policy_value_net.save_checkpoint(self.checkPointPath + "_epoch_%d" % (i+1))
+                    self.saveTrainState(self.checkPointPath + "_epoch_%d" % (i+1))
                     # if ((i + 1) // self.check_freq) % 2 != 0:
                     if not self.beaten_pure_mct:  # 未完全胜利
                         win_ratio = self.evaluate_with_pure(i + 1)
@@ -250,11 +253,11 @@ class TrainPipeline:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='AlphaZero Othello')
-    parser.add_argument('--loadDir', type=str, default='../data/model_01_03_21_16_18_02/checkpoint',
+    parser.add_argument('--loadDir', type=str, default='../data/model_01_03_21_22_21_34/checkpoint',
                         help="checkpoint's directory")
     parser.add_argument('--lr', type=float, default=0.01,
                         help='learning rate')
-    parser.add_argument('--cf', type=int, default=150,
+    parser.add_argument('--cf', type=int, default=90,
                         help='check freq')
 
     args = parser.parse_args()
