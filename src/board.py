@@ -1,10 +1,24 @@
 import numpy as np
-
+import copy
 
 class Board:
     def __init__(self, width=8):
         self.width = width
         self.reset_board(self.width)
+        self.lastMove = 64
+        self.lastLastMove = 64
+        self.availables = []
+        self.lastBoard = np.zeros((width, width), dtype=np.int)
+        self.lastLastBoard = np.zeros((width, width), dtype=np.int)
+        self.board = np.zeros((width, width), dtype=np.int)
+
+    def renewLastMove(self, move):
+        self.lastLastMove = self.lastMove
+        self.lastMove = move
+        # deep copy很关键
+        self.lastLastBoard = copy.deepcopy(self.lastBoard)
+        self.lastBoard = copy.deepcopy(self.board)
+        print("------renew!")
 
     def getBoardSize(self):
         return self.width, self.width
@@ -42,6 +56,7 @@ class Board:
         side = self.current_player
         if move not in self.possible_moves():
             raise ValueError("Invalid move")
+        #无子下的操作是(-1, -1)
         if x == -1 and y == -1:
             # print(str(self.current_player) + "pass")
             self.current_player = self.get_opponent()  # 换边
@@ -73,7 +88,7 @@ class Board:
         if t < 0:
             return -1
         return 0
-
+    # [64]代表无步可下
     def get_valid_moves(self):
         side = self.get_current_player()
         moves = []
@@ -146,7 +161,64 @@ class Board:
                     p = '*'
                 print(p.center(4), end='')
             print()
+    def save_board(self, dir = "../data/board"):
+        try:
+            f = open(dir, 'w')
+            if not f:
+                print("no such dir, saving at default dir.")
+            for my_list in self.board:
+                print(my_list)
+                for item in my_list:
+                    f.write("%s " % item)
+                f.write("\n")
+            f.close()
+            print("successfully saving board!")
+            #self.print_board()
+        except Exception as error:
+            print(error.__str__())
+    def load_board(self, dir = "../data/board"):
+        try:
+            f = open(dir, 'r')
+            if not f:
+                print("no such dir, saving at default dir.")
+            i = 0
+            for line in f.readlines():
+                if i == 8:
+                    break
+                line = line[:-1] # 小心空字符串
+                # [int(n) for n in line.split(" ")]
+                # lineArr = line.split(' ')
+                lineArr = [int(n) for n in line.split(" ") if len(n) > 0]
+                print(lineArr)
+                self.board[i] = lineArr
+                i += 1
+            f.close()
+            print("successfully loading board!")
+            # 加载完棋盘要重新计算可行点
+            self.availables = self.get_valid_moves()
+            self.print_board()
 
+        except Exception as error:
+            print(error.__str__())
+    def undo(self):
+        try:
+            lmove = Board.move_to_location(self.lastMove)
+            llmove = Board.move_to_location(self.lastLastMove)
+            if lmove[0] != -1 and lmove[1] != -1 and llmove[0] != -1 and llmove[1] != -1:
+                self.board = copy.deepcopy(self.lastLastBoard)
+                # 改变棋盘后要重新计算可行点
+                self.availables = self.get_valid_moves()
+                self.print_board()
+                self.lastBoard = np.zeros((self.width, self.width), dtype=np.int)
+                self.lastLastBoard = np.zeros((self.width, self.width), dtype=np.int)
+                self.lastMove = 64
+                self.lastLastMove = 64
+                print("Undo successfully!")
+            else:
+                print("You can't undo!")
+
+        except Exception as error:
+            print("error: ", error.__class__)
     @staticmethod
     def piece_map(x):
         return {
@@ -154,7 +226,7 @@ class Board:
             -1: 'B',
             0: '-',
         }[x]
-
+    # move是数字，location是tuple
     @staticmethod
     def location_to_move(location, width=8):
         if location == (-1, -1):

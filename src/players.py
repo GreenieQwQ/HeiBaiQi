@@ -28,18 +28,26 @@ class Human(BasePlayer):
             print("No move for you!")
             return (-1, -1)
         try:
+            print("input -1 to Undo, -2 to save board")
             location = input("Your move: ")
             # location为int的列表[i, j]
             if isinstance(location, str):
                 location = [int(n) for n in location.split(",")]
-            move = board.location_to_move(location)
+            if location[0] == -1:
+                board.undo()
+                move = None
+            elif location[0] == -2:
+                board.save_board()
+                move = None
+            else:
+                move = board.location_to_move(location)
         except Exception:
             move = None
 
         if move is None or move not in board.possible_moves():
             print("invalid move")
             move = self.get_action(board)
-        return move
+        return move #move是(i, j)形式
 
     def __str__(self):
         return "Human {}".format(self.player)

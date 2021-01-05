@@ -10,16 +10,24 @@ def run():
     model_path = '../data/model_01_03_21_14_58_17/checkpoint'
     try:
         human1 = RandomPlayer()
-        # human2 = RandomPlayer()
+        human2 = Human()
         # human2 = MCT_Pure_Player(c_puct=5,
         #                          n_playout=1000)
 
         game = GameServer()
+
         policy_value_net = PolicyNet(game).load_checkpoint(model_path)
         human2 = MCTSPlayer(c_puct=5,
                             n_playout=400,
                             policy_value_function=policy_value_net.policy_value_fn)
         # human2 = MCT_Pure_Player(c_puct=5,  n_playout=1000)
+
+        # policy_value_net = PolicyNet(game).load_checkpoint(model_path)
+        # human2 = MCTSPlayer(c_puct=5,
+        #                     n_playout=400,
+        #                     policy_value_function=policy_value_net.policy_value_fn)
+        #human2 = MCT_Pure_Player(c_puct=5,  n_playout=400)
+
         # ############### human VS AI ###################
         # load the trained policy_value_net in either Theano/Lasagne, PyTorch or TensorFlow
 
@@ -43,8 +51,8 @@ def run():
         # human player, input your move in the format: 2,3
 
         # set start_player=0 for human first
-        # game.play_a_game(human1, human2, start_player=1)
-        print(game.play_games(human1, human2, num=20, shown=False))
+        game.play_a_game(human1, human2, start_player=1)
+        #print(game.play_games(human1, human2, num=20, shown=False))
     except KeyboardInterrupt:
         print('\n\r\n\rQuit.')
 
