@@ -8,6 +8,8 @@ class BasePlayer:
     def get_action(self, board):
         return board.possible_moves()[0]
 
+    def reset(self):
+        pass
 
     def statistics(self):
         pass

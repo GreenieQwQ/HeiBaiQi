@@ -8,7 +8,7 @@ A pure implementation of the Monte Carlo Tree Search (MCTS)
 import numpy as np
 import copy
 from operator import itemgetter
-
+from players import BasePlayer
 
 def rollout_policy_fn(board):
     """a coarse, fast version of policy_fn used in the rollout phase."""
@@ -182,7 +182,7 @@ class MCTS(object):
         return "MCTS"
 
 
-class MCT_Pure_Player(object):
+class MCT_Pure_Player(BasePlayer):
     """AI player based on MCTS"""
     def __init__(self, c_puct=5, n_playout=2000):
         self.mcts = MCTS(policy_value_fn, c_puct, n_playout)

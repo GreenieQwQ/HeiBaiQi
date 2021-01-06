@@ -1,4 +1,5 @@
 import pyximport; pyximport.install()
+import argparse
 from gameServer import GameServer
 from NetWrapper import PolicyNet
 from mct_player import MCTSPlayer
@@ -7,19 +8,25 @@ from NetWrapper import PolicyNet
 from players import *
 from MCTS import cython_MCTS
 
-def run():
+def run(**kwargs):
     # model_path = '../../fast-alphazero-general/checkpoint'
     # model_path = '../data/model_01_04_21_22_03_52/checkpoint_epoch_100'
     # model_path = '../data/model_01_03_21_22_21_34/checkpoint'
     model_path = '../data/test'
     try:
         game = GameServer()
-        policy_value_net = PolicyNet(game).load_checkpoint(model_path, 'iteration-0121.pkl')
-        human1 = RandomPlayer()
-        human2 = cython_MCTS(game, policy_value_net, temp=0)
+        policy_value_net1 = PolicyNet(game).load_checkpoint(model_path, 'iteration-0163.pkl')
+        policy_value_net2 = PolicyNet(game).load_checkpoint(model_path, 'iteration-0163.pkl')
+        # human1 = RandomPlayer()
+        h1temp = kwargs.get("t1", 0.1)
+        h2temp = kwargs.get("t2", 0.1)
+        print(f"H1temp: {h1temp}")
+        print(f"H1temp: {h2temp}")
+        human1 = cython_MCTS(game, policy_value_net1, temp=h1temp, numMCTSSims=600)
+        # human2 = cython_MCTS(game, policy_value_net2, temp=h2temp)
 
-        # human2 = MCT_Pure_Player(c_puct=5,
-        #                          n_playout=1000)
+        human2 = MCT_Pure_Player(c_puct=5,
+                                 n_playout=1000)
 
 
         # policy_value_net = PolicyNet(game).load_checkpoint(model_path)
@@ -58,4 +65,10 @@ def run():
 
 
 if __name__ == '__main__':
-    run()
+    parser = argparse.ArgumentParser(description='AlphaZero Othello')
+    parser.add_argument('--t1', type=float, default=0.1,
+                        help="p1's temp")
+    parser.add_argument('--t2', type=float, default=0.1,
+                        help="p2's temp")
+    args = parser.parse_args()
+    run(t1=args.t1, t2=args.t2)

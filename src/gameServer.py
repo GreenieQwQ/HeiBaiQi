@@ -136,19 +136,28 @@ class GameServer:
         eps = 0
         maxeps = int(num)
 
+        black = 0
+        white = 0
+
         num = int(num / 2)
         oneWon = 0
         twoWon = 0
         draws = 0
         for _ in range(num):
             self.board.reset_board()
+            player1.reset()
+            player2.reset()
             gameResult = self.play_a_game(player1, player2, shown=shown)
             if gameResult == -1:
                 oneWon += 1
+                black += 1
             elif gameResult == 1:
                 twoWon += 1
+                white += 1
             else:
                 draws += 1
+                white += 0.5
+                black += 0.5
             # bookkeeping + plot progress
             eps += 1
             eps_time.update(time.time() - end)
@@ -162,10 +171,14 @@ class GameServer:
             gameResult = self.play_a_game(player2, player1, shown=shown)
             if gameResult == 1:
                 oneWon += 1
+                white += 1
             elif gameResult == -1:
                 twoWon += 1
+                black += 1
             else:
                 draws += 1
+                white += 0.5
+                black += 0.5
             # bookkeeping + plot progress
             eps += 1
             eps_time.update(time.time() - end)
@@ -177,5 +190,8 @@ class GameServer:
 
         bar.update()
         bar.finish()
+
+        print(f"Black: {black}")
+        print(f"White: {white}")
 
         return oneWon, twoWon, draws
