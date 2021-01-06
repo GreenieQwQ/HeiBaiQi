@@ -21,7 +21,8 @@ class cython_MCTS(BasePlayer):
         self.numMCTSSims = kwargs.get('numMCTSSims', 50)
         self.cpuct = kwargs.get('cpuct', 3)
         self.reset()
-        self.temp = kwargs.get('temp', 0)
+        self.temp = kwargs.get('temp', 0.1)
+        self.tempThreshold = kwargs.get('tempThreshold', 10)
 
     def reset(self):
         self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
@@ -36,7 +37,7 @@ class cython_MCTS(BasePlayer):
         self.path = []
         self.v = 0
 
-    def get_action(self, board, temp=0):
+    def get_action(self, board):
         inputBoard = board.getCanonicalForm()
         policy = self.getActionProb(inputBoard, temp=self.temp)
         return np.random.choice(len(policy), p=policy)

@@ -11,6 +11,7 @@ from mct_player import MCTSPlayer
 class GameServer:
     def __init__(self, **kwargs):
         self.board = Board()
+        self.n = self.board.width
 
     def getBoardSize(self):
         return self.board.getBoardSize()
@@ -24,6 +25,41 @@ class GameServer:
 
     def stringRepresentation(self, board):
         return board.tostring()
+
+    def getGameEnded(self, board, player):
+        # return 0 if not ended, 1 if player 1 won, -1 if player 1 lost
+        # player = 1
+        b = Board()
+        b.initilize(board, player)
+        is_end, winner = b.game_end()
+        if not is_end:
+            return 0
+        else:
+            return 1 if winner == 1 else -1
+
+    def getValidMoves(self, board, player):
+        # return a fixed size binary vector
+        valids = [0] * self.getActionSize()
+        b = Board()
+        b.initilize(board, player)
+        legalMoves = b.get_valid_moves()
+        for m in legalMoves:
+            valids[m] = 1
+        return np.array(valids)
+
+    def getCanonicalForm(self, board, player):
+        # return state if player==1, else return -state if player==-1
+        return player * board
+
+    def getNextState(self, board, player, action):
+        # if player takes action on board, return next (board,player)
+        # action must be a valid move
+        if action == self.n * self.n:
+            return (board, -player)
+        b = Board(self.n)
+        b.initilize(board, player)
+        b.do_move(action)
+        return (np.asarray(b.board), -player)
 
     # 开始游戏
     def play_a_game(self, player1, player2, start_player=0, shown=True):
@@ -104,25 +140,25 @@ class GameServer:
         oneWon = 0
         twoWon = 0
         draws = 0
-        # for _ in range(num):
-        #     self.board.reset_board()
-        #     gameResult = self.play_a_game(player1, player2, shown=shown)
-        #     if gameResult == -1:
-        #         oneWon += 1
-        #     elif gameResult == 1:
-        #         twoWon += 1
-        #     else:
-        #         draws += 1
-        #     # bookkeeping + plot progress
-        #     eps += 1
-        #     eps_time.update(time.time() - end)
-        #     end = time.time()
-        #     bar.suffix = '({eps}/{maxeps}) Winrate: {wr}%% | Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
-        #         eps=eps, maxeps=maxeps, et=eps_time.avg, total=bar.elapsed_td, eta=bar.eta_td,
-        #         wr=int(100 * (oneWon + 0.5 * draws) / (oneWon + twoWon + draws)))
-        #     bar.next()
+        for _ in range(num):
+            self.board.reset_board()
+            gameResult = self.play_a_game(player1, player2, shown=shown)
+            if gameResult == -1:
+                oneWon += 1
+            elif gameResult == 1:
+                twoWon += 1
+            else:
+                draws += 1
+            # bookkeeping + plot progress
+            eps += 1
+            eps_time.update(time.time() - end)
+            end = time.time()
+            bar.suffix = '({eps}/{maxeps}) Winrate: {wr}%% | Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
+                eps=eps, maxeps=maxeps, et=eps_time.avg, total=bar.elapsed_td, eta=bar.eta_td,
+                wr=int(100 * (oneWon + 0.5 * draws) / (oneWon + twoWon + draws)))
+            bar.next()
 
-        for _ in range(2 * num):
+        for _ in range(num):
             gameResult = self.play_a_game(player2, player1, shown=shown)
             if gameResult == 1:
                 oneWon += 1

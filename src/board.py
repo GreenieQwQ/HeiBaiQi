@@ -14,6 +14,11 @@ class Board:
         # return number of actions
         return self.width * self.width + 1
 
+    def initilize(self, board, player):
+        self.current_player = player
+        self.board = np.copy(board)
+        self.availables = self.get_valid_moves()
+
     def getState(self):
         return np.copy(self.board)
 
@@ -44,6 +49,9 @@ class Board:
         x, y = Board.move_to_location(move)
         side = self.current_player
         if move not in self.possible_moves():
+            print()
+            print(move)
+            print(self.possible_moves())
             raise ValueError("Invalid move")
         if x == -1 and y == -1:
             # print(str(self.current_player) + "pass")
