@@ -179,7 +179,7 @@ class MCTSPlayer(BasePlayer):
     def set_player_ind(self, p):
         self.player = p
 
-    def reset_player(self):
+    def reset(self):
         self.mcts.update_with_move(-1)
 
     def get_action(self, board, temp=1e-3, return_prob=0):

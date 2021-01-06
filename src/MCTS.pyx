@@ -127,8 +127,8 @@ class cython_MCTS(BasePlayer):
             self.Ns[s] = 0
             return -v
 
-        # 已知使用Net得到的先验概率——内部节点
-        valids = self.Vs[s]
+        # 内部节点
+        valids = self.Vs[s]     # 合法动作
         cur_best = -float('inf')
         best_act = -1
 

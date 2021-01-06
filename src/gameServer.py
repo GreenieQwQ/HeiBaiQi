@@ -63,6 +63,9 @@ class GameServer:
 
     # 开始游戏
     def play_a_game(self, player1, player2, start_player=0, shown=True):
+        # 重启player
+        player1.reset()
+        player2.reset()
         # 重启盘面
         self.board.reset_board(start_player=start_player)
 
@@ -104,7 +107,8 @@ class GameServer:
                                                  temp=temp,
                                                  return_prob=True)
             # store the data
-            states.append(self.board.getState())
+            # 使用正则化表达生成数据
+            states.append(self.board.getCanonicalForm())
             mcts_probs.append(move_probs)
             current_players.append(self.board.current_player)
             # perform a move
@@ -144,9 +148,6 @@ class GameServer:
         twoWon = 0
         draws = 0
         for _ in range(num):
-            self.board.reset_board()
-            player1.reset()
-            player2.reset()
             gameResult = self.play_a_game(player1, player2, shown=shown)
             if gameResult == -1:
                 oneWon += 1
