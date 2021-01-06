@@ -17,16 +17,16 @@ def run(**kwargs):
         game = GameServer()
         policy_value_net1 = PolicyNet(game).load_checkpoint(model_path, 'iteration-0163.pkl')
         policy_value_net2 = PolicyNet(game).load_checkpoint(model_path, 'iteration-0163.pkl')
-        # human1 = RandomPlayer()
+        human1 = RandomPlayer()
         h1temp = kwargs.get("t1", 0.1)
         h2temp = kwargs.get("t2", 0.1)
         print(f"H1temp: {h1temp}")
-        print(f"H1temp: {h2temp}")
-        human1 = cython_MCTS(game, policy_value_net1, temp=h1temp, numMCTSSims=600)
-        # human2 = cython_MCTS(game, policy_value_net2, temp=h2temp)
+        print(f"H2temp: {h2temp}")
+        # human1 = cython_MCTS(game, policy_value_net1, temp=h1temp, numMCTSSims=600)
+        human2 = cython_MCTS(game, policy_value_net2, temp=h2temp, numMCTSSims=600)
 
-        human2 = MCT_Pure_Player(c_puct=5,
-                                 n_playout=1000)
+        # human2 = MCT_Pure_Player(c_puct=5,
+        #                          n_playout=1000)
 
 
         # policy_value_net = PolicyNet(game).load_checkpoint(model_path)
@@ -59,7 +59,7 @@ def run(**kwargs):
 
         # set start_player=0 for human first
         # game.play_a_game(human1, human2, start_player=1)
-        print(game.play_games(human1, human2, num=20, shown=False))
+        print(game.play_games(human1, human2, num=20, shown=True))
     except KeyboardInterrupt:
         print('\n\r\n\rQuit.')
 
