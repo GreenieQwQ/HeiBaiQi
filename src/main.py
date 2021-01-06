@@ -4,22 +4,25 @@ from mct_player import MCTSPlayer
 from mcts_pure import MCT_Pure_Player
 from NetWrapper import PolicyNet
 from players import *
-
+from MCTS import cython_MCTS
 
 def run():
-    model_path = '../data/model_01_03_21_22_21_34/checkpoint'
+    model_path = '../../fast-alphazero-general/checkpoint'
+    # model_path = '../data/model_01_04_21_22_03_52/checkpoint_epoch_100'
+    # model_path = '../data/model_01_03_21_22_21_34/checkpoint'
     try:
         human1 = RandomPlayer()
-        # human2 = RandomPlayer()
+        human2 = cython_MCTS()
         # human2 = MCT_Pure_Player(c_puct=5,
         #                          n_playout=1000)
 
         game = GameServer()
         # policy_value_net = PolicyNet(game).load_checkpoint(model_path)
-        # human2 = MCTSPlayer(c_puct=5,
-        #                     n_playout=400,
-        #                     policy_value_function=policy_value_net.policy_value_fn)
-        human2 = MCT_Pure_Player(c_puct=5,  n_playout=400)
+        policy_value_net = PolicyNet(game).load_checkpoint(model_path, 'iteration-0105.pkl')
+        human2 = MCTSPlayer(c_puct=5,
+                            n_playout=400,
+                            policy_value_function=policy_value_net.policy_value_fn)
+        # human2 = MCT_Pure_Player(c_puct=5,  n_playout=400)
         # ############### human VS AI ###################
         # load the trained policy_value_net in either Theano/Lasagne, PyTorch or TensorFlow
 
@@ -38,13 +41,13 @@ def run():
         #                          n_playout=400)  # set larger n_playout for better performance
 
         # uncomment the following line to play with pure MCTS (it's much weaker even with a larger n_playout)
-        #mcts_player = MCTS_Pure(c_puct=5, n_playout=1000)
+        # mcts_player = MCT_Pure_Player(c_puct=5, n_playout=400)
 
         # human player, input your move in the format: 2,3
 
         # set start_player=0 for human first
         # game.play_a_game(human1, human2, start_player=1)
-        print(game.play_games(human1, human2, num=20, shown=False))
+        print(game.play_games(mcts_player, human2, num=20, shown=False))
     except KeyboardInterrupt:
         print('\n\r\n\rQuit.')
 

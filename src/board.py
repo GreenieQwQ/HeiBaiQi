@@ -17,6 +17,9 @@ class Board:
     def getState(self):
         return np.copy(self.board)
 
+    def getCanonicalForm(self):
+        return np.copy(self.board) * self.get_current_player()
+
     def reset_board(self, width=8, start_player=0):
         self.board = np.zeros((width, width), dtype=np.int)
         self.players = [-1, 1]

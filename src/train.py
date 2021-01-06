@@ -28,21 +28,22 @@ class TrainPipeline:
         self.board_width, self.board_height = self.game.getBoardSize()
         # training params
         self.temp = kwargs.get('temp', 1.0)  # the temperature param
-        self.n_playout = kwargs.get('n_playout', 600)  # num of simulations for each move
+        self.n_playout = kwargs.get('n_playout', 400)  # num of simulations for each move
         self.c_puct = kwargs.get('c_puct', 5)
         self.buffer_size = kwargs.get('buffer_size', 10000)
         self.batch_size = kwargs.get('batch_size', 512)  # mini-batch size for training
         self.data_buffer = deque(maxlen=self.buffer_size)
         self.play_per_iter = kwargs.get('play_per_iter', 1)  # 一次增加数据下多少次棋
-        self.check_freq = kwargs.get('check_freq', 100)  # 多少次迭代evaluate
+        self.check_freq = kwargs.get('check_freq', 20)  # 多少次迭代evaluate
         self.epoch_num = kwargs.get('epoch_num', 6000)  # 训练的迭代次数
         self.train_steps = kwargs.get('train_steps', 500)   # 一个epoch在batch上迭代的次数
+        self.save_freq = kwargs.get('save_freq', 5)   # 5次迭代save一次
 
-        self.beaten_pure_mct = False
+        self.beaten_random = False
         self.best_win_ratio = 0.0
         # num of simulations used for the pure mcts, which is used as
         # the opponent to evaluate the trained policy
-        self.pure_mcts_playout_num = 1000
+        self.pure_mcts_playout_num = 800
 
         self.lr = kwargs.get('lr', 0.005)
         self.dropout = kwargs.get('dropout', 0.3)
@@ -64,7 +65,7 @@ class TrainPipeline:
         # 加载模型和训练状态
         loadPath = kwargs.get('loadPath', None)
         if loadPath:
-            # self.policy_value_net.load_checkpoint(loadPath)
+            self.policy_value_net.load_checkpoint(loadPath)
             self.loadTrainState(loadPath)
 
     # 记录训练的state
@@ -74,7 +75,7 @@ class TrainPipeline:
             os.makedirs(folder)
         torch.save({
             'best_win_ratio': self.best_win_ratio,
-            'beaten_pure_mct': self.beaten_pure_mct,
+            'beaten_pure_mct': self.beaten_random,
             'pure_mcts_playout_num': self.pure_mcts_playout_num,
             'databuffer': self.data_buffer
         }, filepath)
@@ -87,7 +88,7 @@ class TrainPipeline:
             return self
         state_dict = torch.load(filepath)
         self.best_win_ratio = state_dict['best_win_ratio']
-        self.beaten_pure_mct = state_dict['beaten_pure_mct']
+        self.beaten_random = state_dict['beaten_pure_mct']
         self.pure_mcts_playout_num = state_dict['pure_mcts_playout_num']
         if 'databuffer' in state_dict:
             self.data_buffer = state_dict['databuffer']
@@ -218,26 +219,26 @@ class TrainPipeline:
                     self.writer.add_scalar('loss/total', l_pi + l_v, iteration)
                 # check the performance of the current model,
                 # and save the model params
-                self.policy_value_net.save_checkpoint(self.checkPointPath)
+                if (i + 1) % self.save_freq == 0:
+                    self.policy_value_net.save_checkpoint(self.checkPointPath + "_epoch_%d" % (i+1))
                 if (i + 1) % self.check_freq == 0:
                     print("current self-play game: {}".format(i + 1))
-                    self.policy_value_net.save_checkpoint(self.checkPointPath + "_epoch_%d" % (i+1))
                     self.saveTrainState(self.checkPointPath + "_epoch_%d" % (i+1))
-                    # if ((i + 1) // self.check_freq) % 2 != 0:
-                    if not self.beaten_pure_mct:  # 未完全胜利
-                        win_ratio = self.evaluate_with_pure(i + 1)
-                    else:  # 完全胜利纯蒙特卡洛 后续和自己比较
-                        win_ratio = self.evaluate_with_best(i + 1)
+                    # 和随机比较
+                    win_ratio = self.evaluate_with_random(i + 1)
+                    if ((i + 1) // self.check_freq) % 2 != 0:
+                        # 和自己比较
+                        self.evaluate_with_best(i + 1)
                     if win_ratio > self.best_win_ratio:
                         print("New best policy!!!!!!!!")
                         self.best_win_ratio = win_ratio
                         # 提升纯蒙特卡罗的强度
-                        if (self.best_win_ratio == 1.0 and
-                                self.pure_mcts_playout_num < 5000):
-                            self.pure_mcts_playout_num += 1000
-                            self.best_win_ratio = 0.0
-                        elif self.pure_mcts_playout_num == 5000:
-                            self.beaten_pure_mct = True     # 进无可进
+                        # if (self.best_win_ratio == 1.0 and
+                        #         self.pure_mcts_playout_num < 5000):
+                        #     self.pure_mcts_playout_num += 1000
+                        #     self.best_win_ratio = 0.0
+                        # elif self.pure_mcts_playout_num == 5000:
+                        #     self.beaten_random = True     # 进无可进
                         # endif
                         # update the best_policy
                         self.policy_value_net.save_checkpoint(self.bestModelPath)
@@ -253,13 +254,13 @@ class TrainPipeline:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='AlphaZero Othello')
-    parser.add_argument('--loadDir', type=str, default='../data/model_01_03_21_22_21_34/checkpoint',
+    parser.add_argument('--loadDir', type=str, default=None,
                         help="checkpoint's directory")
     parser.add_argument('--lr', type=float, default=0.01,
                         help='learning rate')
     parser.add_argument('--cf', type=int, default=90,
                         help='check freq')
-
+    # '../data/model_01_03_21_22_21_34/checkpoint'
     args = parser.parse_args()
     training_pipeline = TrainPipeline(loadPath=args.loadDir, lr=args.lr, check_freq=args.cf)
     training_pipeline.run()

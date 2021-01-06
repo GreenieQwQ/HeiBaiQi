@@ -22,6 +22,9 @@ class GameServer:
     def graphic(self):
         self.board.print_board()
 
+    def stringRepresentation(self, board):
+        return board.tostring()
+
     # 开始游戏
     def play_a_game(self, player1, player2, start_player=0, shown=True):
         # 重启盘面
@@ -101,25 +104,25 @@ class GameServer:
         oneWon = 0
         twoWon = 0
         draws = 0
-        for _ in range(num):
-            self.board.reset_board()
-            gameResult = self.play_a_game(player1, player2, shown=shown)
-            if gameResult == -1:
-                oneWon += 1
-            elif gameResult == 1:
-                twoWon += 1
-            else:
-                draws += 1
-            # bookkeeping + plot progress
-            eps += 1
-            eps_time.update(time.time() - end)
-            end = time.time()
-            bar.suffix = '({eps}/{maxeps}) Winrate: {wr}%% | Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
-                eps=eps, maxeps=maxeps, et=eps_time.avg, total=bar.elapsed_td, eta=bar.eta_td,
-                wr=int(100 * (oneWon + 0.5 * draws) / (oneWon + twoWon + draws)))
-            bar.next()
+        # for _ in range(num):
+        #     self.board.reset_board()
+        #     gameResult = self.play_a_game(player1, player2, shown=shown)
+        #     if gameResult == -1:
+        #         oneWon += 1
+        #     elif gameResult == 1:
+        #         twoWon += 1
+        #     else:
+        #         draws += 1
+        #     # bookkeeping + plot progress
+        #     eps += 1
+        #     eps_time.update(time.time() - end)
+        #     end = time.time()
+        #     bar.suffix = '({eps}/{maxeps}) Winrate: {wr}%% | Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
+        #         eps=eps, maxeps=maxeps, et=eps_time.avg, total=bar.elapsed_td, eta=bar.eta_td,
+        #         wr=int(100 * (oneWon + 0.5 * draws) / (oneWon + twoWon + draws)))
+        #     bar.next()
 
-        for _ in range(num):
+        for _ in range(2 * num):
             gameResult = self.play_a_game(player2, player1, shown=shown)
             if gameResult == 1:
                 oneWon += 1

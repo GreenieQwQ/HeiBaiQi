@@ -10,8 +10,8 @@ from board import Board
 
 
 # Device configuration
-# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 
 class PolicyNet:
@@ -19,10 +19,10 @@ class PolicyNet:
         self.nnet = OthelloNet(game, num_channels=kwargs.get('num_channels', 512), dropout=kwargs.get('dropout', 0.3)).to(device)
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
-        # self.optimizer = optim.Adam(
-        #     self.nnet.parameters(), lr=kwargs.get('lr', 0.005))
-        self.optimizer = optim.SGD(
-            self.nnet.parameters(), lr=kwargs.get('lr', 0.005), momentum=0.9, weight_decay=1e-3)
+        self.optimizer = optim.Adam(
+            self.nnet.parameters(), lr=kwargs.get('lr', 0.005))
+        # self.optimizer = optim.SGD(
+        #     self.nnet.parameters(), lr=kwargs.get('lr', 0.005), momentum=0.9, weight_decay=1e-3)
         # self.scheduler = optim.lr_scheduler.MultiStepLR(
         #    self.optimizer, milestones=[200,400], gamma=0.1)
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, cooldown=10)
@@ -124,13 +124,23 @@ class PolicyNet:
         availables = board.possible_moves()
         return zip(availables, act_probs[availables]), value
 
-    # def process(self, batch):
-    #     if args.cuda:
-    #         batch = batch.cuda()
-    #     self.nnet.eval()
-    #     with torch.no_grad():
-    #         pi, v = self.nnet(batch)
-    #         return torch.exp(pi), v
+    def predict(self, board):
+        """
+        board: np array with board
+        """
+        # timing
+        # start = time.time()
+
+        # preparing input
+        input_board = torch.FloatTensor(board.astype(np.float64)).to(device)
+        with torch.no_grad():
+            input_board = input_board.view(1, self.board_x, self.board_y)
+
+            self.nnet.eval()
+            pi, v = self.nnet(input_board)
+
+            # print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
+            return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
 
     # 交叉熵 output已经过log_softmax层
     def loss_pi(self, targets, outputs):
@@ -155,7 +165,7 @@ class PolicyNet:
     def load_checkpoint(self, folder='../data/checkpoint', filename='checkpoint.pth.tar'):
         filepath = os.path.join(folder, filename)
         if not os.path.isfile(filepath):
-            raise ("No model in path {}".format(filepath))
+            raise Exception("No model in path {}".format(filepath))
         checkpoint = torch.load(filepath)
         self.nnet.load_state_dict(checkpoint['state_dict'])
         if 'opt_state' in checkpoint:
