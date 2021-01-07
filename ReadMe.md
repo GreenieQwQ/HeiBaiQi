@@ -25,3 +25,17 @@ python train.py
 python main.py
 ```
 即可运行黑白棋程序。
+
+## 鸣谢
+
+我们的代码编写参考了许多作者对于Alpha Zero的实现，在此特别鸣谢：
+
+https://github.com/bhansconnect/alpha_zero_othello
+
+https://github.com/junxiaosong/AlphaZero_Gomoku
+
+https://github.com/bhansconnect/fast-alphazero-general
+
+以及pytorch教程：
+
+https://pytorch.org/tutorials/
