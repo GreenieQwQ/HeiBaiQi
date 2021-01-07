@@ -10,8 +10,8 @@ from board import Board
 
 
 # Device configuration
-# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
 
 class PolicyNet:
@@ -19,10 +19,10 @@ class PolicyNet:
         self.nnet = OthelloNet(game, num_channels=kwargs.get('num_channels', 512), dropout=kwargs.get('dropout', 0.3)).to(device)
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
-        # self.optimizer = optim.Adam(
-        #     self.nnet.parameters(), lr=kwargs.get('lr', 0.005))
-        self.optimizer = optim.SGD(
-            self.nnet.parameters(), lr=kwargs.get('lr', 0.005), momentum=0.9, weight_decay=1e-3)
+        self.optimizer = optim.Adam(
+            self.nnet.parameters(), lr=kwargs.get('lr', 0.005))
+        # self.optimizer = optim.SGD(
+        #     self.nnet.parameters(), lr=kwargs.get('lr', 0.005), momentum=0.9, weight_decay=1e-3)
         # self.scheduler = optim.lr_scheduler.MultiStepLR(
         #    self.optimizer, milestones=[200,400], gamma=0.1)
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, cooldown=10)
@@ -33,7 +33,6 @@ class PolicyNet:
         # 随机打乱batch
         dataset = SAV_Dataset(batches)
         dataloader = SAV_DataLoader(dataset, device, batch_size=batch_size, shuffle=True)
-
 
         self.nnet.train()
 
@@ -54,28 +53,25 @@ class PolicyNet:
                 current_step += 1
                 states, target_pis, target_vs = batch
 
-                # measure data loading time
                 data_time.update(time() - end)
 
-                # compute output
                 out_pi, out_v = self.nnet(states)
                 l_pi = self.loss_pi(target_pis, out_pi)
                 l_v = self.loss_v(target_vs, out_v)
                 total_loss = l_pi + l_v
-                # record loss
+                # 记录损失
                 pi_losses.update(l_pi.item(), states.size(0))
                 v_losses.update(l_v.item(), states.size(0))
 
-                # compute gradient and do SGD step
+                # 反向传播
                 self.optimizer.zero_grad()
                 total_loss.backward()
                 self.optimizer.step()
 
-                # measure elapsed time
                 batch_time.update(time() - end)
                 end = time()
 
-                # plot progress
+                # 展示参数
                 bar.suffix = '({step}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | Loss_pi: {lpi:.4f} | Loss_v: {lv:.3f}'.format(
                     step=current_step,
                     size=train_steps,
@@ -94,10 +90,7 @@ class PolicyNet:
         return pi_losses.avg, v_losses.avg
 
     def policy_value(self, state_batch):
-        """
-            input: a batch of states
-            output: a batch of action probabilities and state values
-        """
+        # 输入棋盘状态，输出经过神经网络预测的V值
         with torch.no_grad():
             self.nnet.eval()
             log_act_probs, value = self.nnet(state_batch)
@@ -105,13 +98,7 @@ class PolicyNet:
             return act_probs, value.data.cpu().numpy()
 
     def policy_value_fn(self, board: Board):
-        """
-            input: board
-            output: a list of (action, probability) tuples for each available
-            action and the score of the board state
-        """
-        # preparing input
-        input_board = board.getState()
+        input_board = board.getCanonicalForm()
         input_board = torch.FloatTensor(input_board.astype(np.float64)).to(device)
         with torch.no_grad():
             input_board = input_board.view(1, self.board_x, self.board_y)
@@ -124,13 +111,14 @@ class PolicyNet:
         availables = board.possible_moves()
         return zip(availables, act_probs[availables]), value
 
-    # def process(self, batch):
-    #     if args.cuda:
-    #         batch = batch.cuda()
-    #     self.nnet.eval()
-    #     with torch.no_grad():
-    #         pi, v = self.nnet(batch)
-    #         return torch.exp(pi), v
+    def predict(self, board):
+        input_board = torch.FloatTensor(board.astype(np.float64)).to(device)
+        with torch.no_grad():
+            input_board = input_board.view(1, self.board_x, self.board_y)
+            self.nnet.eval()
+            pi, v = self.nnet(input_board)
+            # print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
+            return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
 
     # 交叉熵 output已经过log_softmax层
     def loss_pi(self, targets, outputs):
@@ -155,7 +143,7 @@ class PolicyNet:
     def load_checkpoint(self, folder='../data/checkpoint', filename='checkpoint.pth.tar'):
         filepath = os.path.join(folder, filename)
         if not os.path.isfile(filepath):
-            raise ("No model in path {}".format(filepath))
+            raise Exception("No model in path {}".format(filepath))
         checkpoint = torch.load(filepath)
         self.nnet.load_state_dict(checkpoint['state_dict'])
         if 'opt_state' in checkpoint:

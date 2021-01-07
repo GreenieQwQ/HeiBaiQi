@@ -11,6 +11,7 @@ from mct_player import MCTSPlayer
 class GameServer:
     def __init__(self, **kwargs):
         self.board = Board()
+        self.n = self.board.width
 
     def getBoardSize(self):
         return self.board.getBoardSize()
@@ -22,8 +23,48 @@ class GameServer:
     def graphic(self):
         self.board.print_board()
 
+    def stringRepresentation(self, board):
+        return board.tostring()
+
+    def getGameEnded(self, board, player):
+        # player = 1
+        b = Board()
+        b.initilize(board, player)
+        is_end, winner = b.game_end()
+        if not is_end:
+            return 0
+        else:
+            return 1 if winner == 1 else -1
+
+    def getValidMoves(self, board, player):
+        valids = [0] * self.getActionSize()
+        b = Board()
+        b.initilize(board, player)
+        legalMoves = b.get_valid_moves()
+        for m in legalMoves:
+            valids[m] = 1
+        return np.array(valids)
+
+    def getCanonicalForm(self, board, player):
+        return player * board
+
+    def getNextState(self, board, player, action):
+        if action == self.n * self.n:
+            return (board, -player)
+        b = Board(self.n)
+        b.initilize(board, player)
+        b.do_move(action)
+        return (np.asarray(b.board), -player)
+
     # 开始游戏
-    def play_a_game(self, player1, player2, start_player=0, shown=True):
+    def play_a_game(self, player1, player2, start_player=0, shown=True, flag=False):
+        # 重启player
+        # if flag:
+        #     player1.reset()
+        # else:
+        #     player2.reset()
+        player1.reset()
+        player2.reset()
         # 重启盘面
         self.board.reset_board(start_player=start_player)
 
@@ -65,7 +106,8 @@ class GameServer:
                                                  temp=temp,
                                                  return_prob=True)
             # store the data
-            states.append(self.board.getState())
+            # 使用正则化表达生成数据
+            states.append(self.board.getCanonicalForm())
             mcts_probs.append(move_probs)
             current_players.append(self.board.current_player)
             # perform a move
@@ -74,13 +116,12 @@ class GameServer:
                 self.graphic()
             end, winner = self.board.game_end()
             if end:
-                # winner from the perspective of the current player of each state
                 v = np.zeros(len(current_players))
                 if winner != 0:  # 平局
                     v[np.array(current_players) == winner] = 1.0
                     v[np.array(current_players) != winner] = -1.0
-                # reset MCTS root node
-                player.reset_player()
+
+                player.reset()
                 if shown:
                     if winner != -1:
                         print("Game end. Winner is player:", winner)
@@ -97,20 +138,26 @@ class GameServer:
         eps = 0
         maxeps = int(num)
 
+        black = 0
+        white = 0
+
         num = int(num / 2)
         oneWon = 0
         twoWon = 0
         draws = 0
         for _ in range(num):
-            self.board.reset_board()
             gameResult = self.play_a_game(player1, player2, shown=shown)
             if gameResult == -1:
                 oneWon += 1
+                black += 1
             elif gameResult == 1:
                 twoWon += 1
+                white += 1
             else:
                 draws += 1
-            # bookkeeping + plot progress
+                white += 0.5
+                black += 0.5
+
             eps += 1
             eps_time.update(time.time() - end)
             end = time.time()
@@ -120,14 +167,18 @@ class GameServer:
             bar.next()
 
         for _ in range(num):
-            gameResult = self.play_a_game(player2, player1, shown=shown)
+            gameResult = self.play_a_game(player2, player1, shown=shown, flag=True)
             if gameResult == 1:
                 oneWon += 1
+                white += 1
             elif gameResult == -1:
                 twoWon += 1
+                black += 1
             else:
                 draws += 1
-            # bookkeeping + plot progress
+                white += 0.5
+                black += 0.5
+
             eps += 1
             eps_time.update(time.time() - end)
             end = time.time()
@@ -138,5 +189,8 @@ class GameServer:
 
         bar.update()
         bar.finish()
+
+        print(f"Black: {black}")
+        print(f"White: {white}")
 
         return oneWon, twoWon, draws
