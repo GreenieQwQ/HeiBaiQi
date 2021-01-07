@@ -68,6 +68,14 @@ class GameServer:
         # 重启盘面
         self.board.reset_board(start_player=start_player)
 
+        try:
+            # 加载棋盘
+            choice = input("load board? 1 for YES, 0 for NO.")
+            if choice == "1":
+                self.board.load_board()
+        except Exception:
+            print("load board failed!")
+            pass
         # 设置player
         p1, p2 = self.board.players
         player1.set_player_ind(p1)
@@ -93,6 +101,7 @@ class GameServer:
             current_player = self.board.get_current_player()
             player_in_turn = players[current_player]
             move = player_in_turn.get_action(self.board)
+            self.board.renewLastMove(move)
             self.board.do_move(move)
             if shown:
                 self.graphic()
