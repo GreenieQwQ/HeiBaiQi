@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-An implementation of the training pipeline of AlphaZero for Gomoku
-
-@author: Junxiao Song
-"""
 
 from __future__ import print_function
 import os
@@ -23,10 +18,10 @@ from players import RandomPlayer
 
 class TrainPipeline:
     def __init__(self, **kwargs):
-        # params of the board and the game
+
         self.game = GameServer()
         self.board_width, self.board_height = self.game.getBoardSize()
-        # training params
+        # 训练参数
         self.temp = kwargs.get('temp', 1.0)  # the temperature param
         self.n_playout = kwargs.get('n_playout', 400)  # num of simulations for each move
         self.c_puct = kwargs.get('c_puct', 5)
@@ -41,8 +36,7 @@ class TrainPipeline:
 
         self.beaten_random = False
         self.best_win_ratio = 0.0
-        # num of simulations used for the pure mcts, which is used as
-        # the opponent to evaluate the trained policy
+
         self.pure_mcts_playout_num = 800
 
         self.lr = kwargs.get('lr', 0.005)
@@ -96,9 +90,7 @@ class TrainPipeline:
 
     # 数据增强 因为盘面旋转相等
     def get_equi_data(self, play_data):
-        """augment the data set by rotation and flipping
-        play_data: [(state, mcts_prob, winner_z), ..., ...] (s, a, v)
-        """
+        # play_data由state, action, value组成
         extend_data = []
         for state, mcts_porb, winner in play_data:
             # 注意：先提取出第65个元素
@@ -217,8 +209,7 @@ class TrainPipeline:
                     self.writer.add_scalar('loss/policy', l_pi, iteration)
                     self.writer.add_scalar('loss/value', l_v, iteration)
                     self.writer.add_scalar('loss/total', l_pi + l_v, iteration)
-                # check the performance of the current model,
-                # and save the model params
+
                 if (i + 1) % self.save_freq == 0:
                     self.policy_value_net.save_checkpoint(self.checkPointPath + "_epoch_%d" % (i+1))
                 if (i + 1) % self.check_freq == 0:
@@ -243,9 +234,7 @@ class TrainPipeline:
                         # update the best_policy
                         self.policy_value_net.save_checkpoint(self.bestModelPath)
                         self.saveTrainState(self.bestModelPath)
-                    # endif
-                # endif
-            # endfor
+
         except KeyboardInterrupt:
             print('\n\rquit')
         finally:

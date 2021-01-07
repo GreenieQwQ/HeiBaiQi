@@ -34,7 +34,6 @@ class PolicyNet:
         dataset = SAV_Dataset(batches)
         dataloader = SAV_DataLoader(dataset, device, batch_size=batch_size, shuffle=True)
 
-
         self.nnet.train()
 
         data_time = AverageMeter()
@@ -54,28 +53,25 @@ class PolicyNet:
                 current_step += 1
                 states, target_pis, target_vs = batch
 
-                # measure data loading time
                 data_time.update(time() - end)
 
-                # compute output
                 out_pi, out_v = self.nnet(states)
                 l_pi = self.loss_pi(target_pis, out_pi)
                 l_v = self.loss_v(target_vs, out_v)
                 total_loss = l_pi + l_v
-                # record loss
+                # 记录损失
                 pi_losses.update(l_pi.item(), states.size(0))
                 v_losses.update(l_v.item(), states.size(0))
 
-                # compute gradient and do SGD step
+                # 反向传播
                 self.optimizer.zero_grad()
                 total_loss.backward()
                 self.optimizer.step()
 
-                # measure elapsed time
                 batch_time.update(time() - end)
                 end = time()
 
-                # plot progress
+                # 展示参数
                 bar.suffix = '({step}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | Loss_pi: {lpi:.4f} | Loss_v: {lv:.3f}'.format(
                     step=current_step,
                     size=train_steps,
@@ -94,10 +90,7 @@ class PolicyNet:
         return pi_losses.avg, v_losses.avg
 
     def policy_value(self, state_batch):
-        """
-            input: a batch of states
-            output: a batch of action probabilities and state values
-        """
+        # 输入棋盘状态，输出经过神经网络预测的V值
         with torch.no_grad():
             self.nnet.eval()
             log_act_probs, value = self.nnet(state_batch)
@@ -105,12 +98,6 @@ class PolicyNet:
             return act_probs, value.data.cpu().numpy()
 
     def policy_value_fn(self, board: Board):
-        """
-            input: board
-            output: a list of (action, probability) tuples for each available
-            action and the score of the board state
-        """
-        # preparing input
         input_board = board.getCanonicalForm()
         input_board = torch.FloatTensor(input_board.astype(np.float64)).to(device)
         with torch.no_grad():
@@ -125,20 +112,11 @@ class PolicyNet:
         return zip(availables, act_probs[availables]), value
 
     def predict(self, board):
-        """
-        board: np array with board
-        """
-        # timing
-        # start = time.time()
-
-        # preparing input
         input_board = torch.FloatTensor(board.astype(np.float64)).to(device)
         with torch.no_grad():
             input_board = input_board.view(1, self.board_x, self.board_y)
-
             self.nnet.eval()
             pi, v = self.nnet(input_board)
-
             # print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
             return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
 

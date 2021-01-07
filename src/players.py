@@ -18,7 +18,6 @@ class RandomPlayer(BasePlayer):
     def get_action(self, board):
         return random.choice(board.possible_moves())
 
-
     def __str__(self):
         return "RandomPlayer {}".format(self.player)
 

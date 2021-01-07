@@ -11,7 +11,6 @@ class Board:
 
     # +1 !!! 黑白棋不能下可以pass！！！
     def getActionSize(self):
-        # return number of actions
         return self.width * self.width + 1
 
     def initilize(self, board, player):

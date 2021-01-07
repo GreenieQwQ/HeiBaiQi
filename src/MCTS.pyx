@@ -11,9 +11,6 @@ EPS = 1e-8
 
 # 相比原蒙特卡罗方法还使用了置换表加速搜索？
 class cython_MCTS(BasePlayer):
-    """
-    This class handles the MCTS tree.
-    """
 
     def __init__(self, game, nnet, **kwargs):
         self.game = game
@@ -43,14 +40,6 @@ class cython_MCTS(BasePlayer):
         return np.random.choice(len(policy), p=policy)
 
     def getActionProb(self, canonicalBoard, temp=1):
-        """
-        This function performs numMCTSSims simulations of MCTS starting from
-        canonicalBoard.
-
-        Returns:
-            probs: a policy vector where the probability of the ith action is
-                   proportional to Nsa[(s,a)]**(1./temp)
-        """
         for i in range(self.numMCTSSims):
             self.search(canonicalBoard)
 
@@ -75,24 +64,6 @@ class cython_MCTS(BasePlayer):
             return probs
 
     def search(self, canonicalBoard):
-        """
-        This function performs one iteration of MCTS. It is recursively called
-        till a leaf node is found. The action chosen at each node is one that
-        has the maximum upper confidence bound as in the paper.
-
-        Once a leaf node is found, the neural network is called to return an
-        initial policy P and a value v for the state. This value is propogated
-        up the search path. In case the leaf node is a terminal state, the
-        outcome is propogated up the search path. The values of Ns, Nsa, Qsa are
-        updated.
-
-        NOTE: the return values are the negative of the value of the current
-        state. This is done since v is in [-1,1] and if v is the value of a
-        state for the current player, then its value is -v for the other player.
-
-        Returns:
-            v: the negative of the value of the current canonicalBoard
-        """
 
         s = self.game.stringRepresentation(canonicalBoard)
 
@@ -134,7 +105,6 @@ class cython_MCTS(BasePlayer):
 
         # 选择最大UCT来进行遍历
         # 遍历全部动作 过滤掉非法动作
-        # pick the action with the highest upper confidence bound
         for a in range(self.game.getActionSize()):
             if valids[a]:   # 遍历全部动作 过滤掉非法动作
                 if (s, a) in self.Qsa:  # 平均行动价值 选择最大Q+U分支
