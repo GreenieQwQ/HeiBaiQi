@@ -22,6 +22,7 @@ def run(**kwargs):
         policy_value_net1 = PolicyNet(game).load_checkpoint(model_path, 'iteration-0121.pkl')
         policy_value_net2 = PolicyNet(game).load_checkpoint(model_path, 'iteration-0121.pkl')
         human1 = RandomPlayer()
+
         h1temp = kwargs.get("t1", 0.1)
         h2temp = kwargs.get("t2", 0.1)
         print(f"H1temp: {h1temp}")
@@ -47,6 +48,7 @@ def run(**kwargs):
 
 
         # human1 = MCT_Pure_Player(c_puct=5,  n_playout=1000)
+
         # ############### human VS AI ###################
         # load the trained policy_value_net in either Theano/Lasagne, PyTorch or TensorFlow
 
@@ -70,6 +72,7 @@ def run(**kwargs):
         # human player, input your move in the format: 2,3
 
         # set start_player=0 for human first
+
         # one, two, draw = 0,0,0
         # for i in trange(10, ncols=80):
         #     # human1 = RandomPlayer()
