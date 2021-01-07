@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-An implementation of the training pipeline of AlphaZero for Gomoku
-
-@author: Junxiao Song
-"""
 
 from __future__ import print_function
 import os
@@ -23,10 +18,10 @@ from players import RandomPlayer
 
 class TrainPipeline:
     def __init__(self, **kwargs):
-        # params of the board and the game
+
         self.game = GameServer()
         self.board_width, self.board_height = self.game.getBoardSize()
-        # training params
+        # 训练参数
         self.temp = kwargs.get('temp', 1.0)  # the temperature param
         self.n_playout = kwargs.get('n_playout', 400)  # num of simulations for each move
         self.c_puct = kwargs.get('c_puct', 5)
@@ -34,15 +29,15 @@ class TrainPipeline:
         self.batch_size = kwargs.get('batch_size', 512)  # mini-batch size for training
         self.data_buffer = deque(maxlen=self.buffer_size)
         self.play_per_iter = kwargs.get('play_per_iter', 1)  # 一次增加数据下多少次棋
-        self.check_freq = kwargs.get('check_freq', 100)  # 多少次迭代evaluate
+        self.check_freq = kwargs.get('check_freq', 20)  # 多少次迭代evaluate
         self.epoch_num = kwargs.get('epoch_num', 6000)  # 训练的迭代次数
         self.train_steps = kwargs.get('train_steps', 500)   # 一个epoch在batch上迭代的次数
+        self.save_freq = kwargs.get('save_freq', 3)   # 3次迭代save一次
 
-        self.beaten_pure_mct = False
+        self.beaten_random = False
         self.best_win_ratio = 0.0
-        # num of simulations used for the pure mcts, which is used as
-        # the opponent to evaluate the trained policy
-        self.pure_mcts_playout_num = 1000
+
+        self.pure_mcts_playout_num = 800
 
         self.lr = kwargs.get('lr', 0.005)
         self.dropout = kwargs.get('dropout', 0.3)
@@ -74,7 +69,7 @@ class TrainPipeline:
             os.makedirs(folder)
         torch.save({
             'best_win_ratio': self.best_win_ratio,
-            'beaten_pure_mct': self.beaten_pure_mct,
+            'beaten_pure_mct': self.beaten_random,
             'pure_mcts_playout_num': self.pure_mcts_playout_num,
             'databuffer': self.data_buffer
         }, filepath)
@@ -87,15 +82,15 @@ class TrainPipeline:
             return self
         state_dict = torch.load(filepath)
         self.best_win_ratio = state_dict['best_win_ratio']
-        self.beaten_pure_mct = state_dict['beaten_pure_mct']
+        self.beaten_random = state_dict['beaten_pure_mct']
         self.pure_mcts_playout_num = state_dict['pure_mcts_playout_num']
+        if 'databuffer' in state_dict:
+            self.data_buffer = state_dict['databuffer']
         return self
 
     # 数据增强 因为盘面旋转相等
     def get_equi_data(self, play_data):
-        """augment the data set by rotation and flipping
-        play_data: [(state, mcts_prob, winner_z), ..., ...] (s, a, v)
-        """
+        # play_data由state, action, value组成
         extend_data = []
         for state, mcts_porb, winner in play_data:
             # 注意：先提取出第65个元素
@@ -124,7 +119,6 @@ class TrainPipeline:
 
     # 自己下n次棋 并且通过数据增强获取(s,a,v)
     def collect_selfplay_data(self, n_games=1):
-        """collect self-play data for training"""
         for i in trange(n_games, ncols=80):
             winner, play_data = self.game.start_self_play(self.mcts_player,
                                                           temp=self.temp, shown=False)
@@ -140,11 +134,13 @@ class TrainPipeline:
         return loss, entropy
 
     # 和自己比较
-    def evaluate_with_best(self, iteration, n_games=10):
+    def evaluate_with_past(self, iteration, n_games=10):
+        if iteration < 10: return
         current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn,
                                          c_puct=self.c_puct,
                                          n_playout=self.n_playout)
-        policy_value_net = PolicyNet(self.game).load_checkpoint(self.bestModelPath)
+        policy_value_net = PolicyNet(self.game).load_checkpoint(self.checkPointPath + "_epoch_%d" %
+                                                                (iteration-self.check_freq))
         best_mcts_player = MCTSPlayer(policy_value_net.policy_value_fn,
                                       c_puct=self.c_puct,
                                       n_playout=self.n_playout)
@@ -156,9 +152,9 @@ class TrainPipeline:
             self.pure_mcts_playout_num,
             win_cnt[1], win_cnt[-1], win_cnt[0]))
 
-        self.writer.add_scalar('win_rate_self/p1 vs p2',
+        self.writer.add_scalar('win_rate/past',
                                win_ratio, iteration)
-        self.writer.add_scalar('win_rate_self/draws', win_cnt[0] / n_games, iteration)
+        self.writer.add_scalar('win_rate/past_draws', win_cnt[0] / n_games, iteration)
 
         return win_ratio
 
@@ -175,9 +171,9 @@ class TrainPipeline:
             self.pure_mcts_playout_num,
             win_cnt[1], win_cnt[-1], win_cnt[0]))
 
-        self.writer.add_scalar('win_rate_random/p1 vs p2',
+        self.writer.add_scalar('win_rate/random',
                                win_ratio, iteration)
-        self.writer.add_scalar('win_rate_random/draws', win_cnt[0] / n_games, iteration)
+        self.writer.add_scalar('win_rate/random_draws', win_cnt[0] / n_games, iteration)
 
         return win_ratio
 
@@ -195,9 +191,9 @@ class TrainPipeline:
             self.pure_mcts_playout_num,
             win_cnt[1], win_cnt[-1], win_cnt[0]))
 
-        self.writer.add_scalar('win_rate_pure/p1 vs p2',
+        self.writer.add_scalar('win_rate/pure',
                                win_ratio, iteration)
-        self.writer.add_scalar('win_rate_pure/draws', win_cnt[0] / n_games, iteration)
+        self.writer.add_scalar('win_rate/pure_draws', win_cnt[0] / n_games, iteration)
 
         return win_ratio
 
@@ -214,34 +210,34 @@ class TrainPipeline:
                     self.writer.add_scalar('loss/policy', l_pi, iteration)
                     self.writer.add_scalar('loss/value', l_v, iteration)
                     self.writer.add_scalar('loss/total', l_pi + l_v, iteration)
-                # check the performance of the current model,
-                # and save the model params
-                self.policy_value_net.save_checkpoint(self.checkPointPath)
+
+                if (i + 1) % self.save_freq == 0:
+                    self.policy_value_net.save_checkpoint(self.checkPointPath + "_epoch_%d" % (i+1))
+
+                if ((i + 1) // self.check_freq) % self.save_freq == 0:
+                    # 和自己比较
+                    self.evaluate_with_past(i + 1)
+
                 if (i + 1) % self.check_freq == 0:
                     print("current self-play game: {}".format(i + 1))
-                    self.saveTrainState(self.checkPointPath)
-                    # if ((i + 1) // self.check_freq) % 2 != 0:
-                    if not self.beaten_pure_mct:  # 未完全胜利
-                        win_ratio = self.evaluate_with_pure(i + 1)
-                    else:  # 完全胜利纯蒙特卡洛 后续和自己比较
-                        win_ratio = self.evaluate_with_best(i + 1)
+                    self.saveTrainState(self.checkPointPath + "_epoch_%d" % (i+1))
+                    # 和随机比较
+                    win_ratio = self.evaluate_with_random(i + 1)
                     if win_ratio > self.best_win_ratio:
                         print("New best policy!!!!!!!!")
                         self.best_win_ratio = win_ratio
                         # 提升纯蒙特卡罗的强度
-                        if (self.best_win_ratio == 1.0 and
-                                self.pure_mcts_playout_num < 5000):
-                            self.pure_mcts_playout_num += 1000
-                            self.best_win_ratio = 0.0
-                        elif self.pure_mcts_playout_num == 5000:
-                            self.beaten_pure_mct = True     # 进无可进
+                        # if (self.best_win_ratio == 1.0 and
+                        #         self.pure_mcts_playout_num < 5000):
+                        #     self.pure_mcts_playout_num += 1000
+                        #     self.best_win_ratio = 0.0
+                        # elif self.pure_mcts_playout_num == 5000:
+                        #     self.beaten_random = True     # 进无可进
                         # endif
                         # update the best_policy
                         self.policy_value_net.save_checkpoint(self.bestModelPath)
                         self.saveTrainState(self.bestModelPath)
-                    # endif
-                # endif
-            # endfor
+
         except KeyboardInterrupt:
             print('\n\rquit')
         finally:
@@ -250,13 +246,13 @@ class TrainPipeline:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='AlphaZero Othello')
-    parser.add_argument('--loadDir', type=str, default='../data/model_01_03_21_16_18_02/checkpoint',
+    parser.add_argument('--loadDir', type=str, default=None,
                         help="checkpoint's directory")
     parser.add_argument('--lr', type=float, default=0.01,
                         help='learning rate')
-    parser.add_argument('--cf', type=int, default=150,
+    parser.add_argument('--cf', type=int, default=90,
                         help='check freq')
-
+    # '../data/model_01_03_21_22_21_34/checkpoint'
     args = parser.parse_args()
     training_pipeline = TrainPipeline(loadPath=args.loadDir, lr=args.lr, check_freq=args.cf)
     training_pipeline.run()
