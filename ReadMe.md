@@ -17,7 +17,11 @@ pip install -r requirement.txt
 在src文件夹下使用命令：
 
 ```
-python main.py
+python train.py
 ```
 
-即可运行程序。
+即可训练模型。在src文件夹下使用命令
+```
+python main.py
+```
+即可运行黑白棋程序。
