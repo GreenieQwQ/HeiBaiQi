@@ -111,7 +111,7 @@ class PolicyNet:
             action and the score of the board state
         """
         # preparing input
-        input_board = board.getState()
+        input_board = board.getCanonicalForm()
         input_board = torch.FloatTensor(input_board.astype(np.float64)).to(device)
         with torch.no_grad():
             input_board = input_board.view(1, self.board_x, self.board_y)

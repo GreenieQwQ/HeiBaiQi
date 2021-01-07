@@ -4,6 +4,8 @@ from gameServer import GameServer
 from NetWrapper import PolicyNet
 from mct_player import MCTSPlayer
 from mcts_pure import MCT_Pure_Player
+import torch
+import os
 from NetWrapper import PolicyNet
 from players import *
 from MCTS import cython_MCTS
@@ -13,6 +15,7 @@ def run(**kwargs):
     # model_path = '../data/model_01_04_21_22_03_52/checkpoint_epoch_100'
     # model_path = '../data/model_01_03_21_22_21_34/checkpoint'
     model_path = '../data/test'
+    MCT_path = '../data/test/mcts.pkl'
     try:
         game = GameServer()
         policy_value_net1 = PolicyNet(game).load_checkpoint(model_path, 'iteration-0163.pkl')
@@ -22,8 +25,11 @@ def run(**kwargs):
         h2temp = kwargs.get("t2", 0.1)
         print(f"H1temp: {h1temp}")
         print(f"H2temp: {h2temp}")
-        # human1 = cython_MCTS(game, policy_value_net1, temp=h1temp, numMCTSSims=600)
-        human2 = cython_MCTS(game, policy_value_net2, temp=h2temp, numMCTSSims=600)
+        human1 = cython_MCTS(game, policy_value_net1, temp=h1temp, numMCTSSims=600)
+        if os.path.isfile(MCT_path):
+            human2 = torch.load(MCT_path)
+        else:
+            human2 = cython_MCTS(game, policy_value_net2, temp=h2temp, numMCTSSims=600)
 
         # human2 = MCT_Pure_Player(c_puct=5,
         #                          n_playout=1000)
@@ -34,7 +40,9 @@ def run(**kwargs):
         # human2 = MCTSPlayer(c_puct=5,
         #                     n_playout=400,
         #                     policy_value_function=policy_value_net.policy_value_fn)
-        # human2 = MCT_Pure_Player(c_puct=5,  n_playout=400)
+
+
+        # human1 = MCT_Pure_Player(c_puct=5,  n_playout=1000)
         # ############### human VS AI ###################
         # load the trained policy_value_net in either Theano/Lasagne, PyTorch or TensorFlow
 
@@ -58,8 +66,30 @@ def run(**kwargs):
         # human player, input your move in the format: 2,3
 
         # set start_player=0 for human first
-        # game.play_a_game(human1, human2, start_player=1)
-        print(game.play_games(human1, human2, num=20, shown=True))
+        one, two, draw = 0,0,0
+        for i in range(10):
+            human1 = RandomPlayer()
+            human2 = torch.load(MCT_path)
+            winner = game.play_a_game(human1, human2)
+            if winner == -1:
+                one += 1
+            elif winner == 1:
+                two += 1
+            else:
+                draw += 1
+        for i in range(10):
+            human1 = RandomPlayer()
+            human2 = torch.load(MCT_path)
+            winner = game.play_a_game(human2, human1)
+            if winner == 1:
+                one += 1
+            elif winner == -1:
+                two += 1
+            else:
+                draw += 1
+        # print(game.play_games(human1, human2, num=20, shown=False))
+        # torch.save(human2, MCT_path)
+        print(one, two, draw)
     except KeyboardInterrupt:
         print('\n\r\n\rQuit.')
 

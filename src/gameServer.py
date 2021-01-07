@@ -123,7 +123,7 @@ class GameServer:
                     v[np.array(current_players) == winner] = 1.0
                     v[np.array(current_players) != winner] = -1.0
                 # reset MCTS root node
-                player.reset_player()
+                player.reset()
                 if shown:
                     if winner != -1:
                         print("Game end. Winner is player:", winner)
