@@ -32,7 +32,7 @@ class TrainPipeline:
         self.check_freq = kwargs.get('check_freq', 20)  # 多少次迭代evaluate
         self.epoch_num = kwargs.get('epoch_num', 6000)  # 训练的迭代次数
         self.train_steps = kwargs.get('train_steps', 500)   # 一个epoch在batch上迭代的次数
-        self.save_freq = kwargs.get('save_freq', 5)   # 5次迭代save一次
+        self.save_freq = kwargs.get('save_freq', 3)   # 3次迭代save一次
 
         self.beaten_random = False
         self.best_win_ratio = 0.0
@@ -119,7 +119,6 @@ class TrainPipeline:
 
     # 自己下n次棋 并且通过数据增强获取(s,a,v)
     def collect_selfplay_data(self, n_games=1):
-        """collect self-play data for training"""
         for i in trange(n_games, ncols=80):
             winner, play_data = self.game.start_self_play(self.mcts_player,
                                                           temp=self.temp, shown=False)
@@ -135,11 +134,13 @@ class TrainPipeline:
         return loss, entropy
 
     # 和自己比较
-    def evaluate_with_best(self, iteration, n_games=10):
+    def evaluate_with_past(self, iteration, n_games=10):
+        if iteration < 10: return
         current_mcts_player = MCTSPlayer(self.policy_value_net.policy_value_fn,
                                          c_puct=self.c_puct,
                                          n_playout=self.n_playout)
-        policy_value_net = PolicyNet(self.game).load_checkpoint(self.bestModelPath)
+        policy_value_net = PolicyNet(self.game).load_checkpoint(self.checkPointPath + "_epoch_%d" %
+                                                                (iteration-self.check_freq))
         best_mcts_player = MCTSPlayer(policy_value_net.policy_value_fn,
                                       c_puct=self.c_puct,
                                       n_playout=self.n_playout)
@@ -151,9 +152,9 @@ class TrainPipeline:
             self.pure_mcts_playout_num,
             win_cnt[1], win_cnt[-1], win_cnt[0]))
 
-        self.writer.add_scalar('win_rate_self/p1 vs p2',
+        self.writer.add_scalar('win_rate/past',
                                win_ratio, iteration)
-        self.writer.add_scalar('win_rate_self/draws', win_cnt[0] / n_games, iteration)
+        self.writer.add_scalar('win_rate/past_draws', win_cnt[0] / n_games, iteration)
 
         return win_ratio
 
@@ -170,9 +171,9 @@ class TrainPipeline:
             self.pure_mcts_playout_num,
             win_cnt[1], win_cnt[-1], win_cnt[0]))
 
-        self.writer.add_scalar('win_rate_random/p1 vs p2',
+        self.writer.add_scalar('win_rate/random',
                                win_ratio, iteration)
-        self.writer.add_scalar('win_rate_random/draws', win_cnt[0] / n_games, iteration)
+        self.writer.add_scalar('win_rate/random_draws', win_cnt[0] / n_games, iteration)
 
         return win_ratio
 
@@ -190,9 +191,9 @@ class TrainPipeline:
             self.pure_mcts_playout_num,
             win_cnt[1], win_cnt[-1], win_cnt[0]))
 
-        self.writer.add_scalar('win_rate_pure/p1 vs p2',
+        self.writer.add_scalar('win_rate/pure',
                                win_ratio, iteration)
-        self.writer.add_scalar('win_rate_pure/draws', win_cnt[0] / n_games, iteration)
+        self.writer.add_scalar('win_rate/pure_draws', win_cnt[0] / n_games, iteration)
 
         return win_ratio
 
@@ -212,14 +213,16 @@ class TrainPipeline:
 
                 if (i + 1) % self.save_freq == 0:
                     self.policy_value_net.save_checkpoint(self.checkPointPath + "_epoch_%d" % (i+1))
+
+                if ((i + 1) // self.check_freq) % self.save_freq == 0:
+                    # 和自己比较
+                    self.evaluate_with_past(i + 1)
+
                 if (i + 1) % self.check_freq == 0:
                     print("current self-play game: {}".format(i + 1))
                     self.saveTrainState(self.checkPointPath + "_epoch_%d" % (i+1))
                     # 和随机比较
                     win_ratio = self.evaluate_with_random(i + 1)
-                    if ((i + 1) // self.check_freq) % 2 != 0:
-                        # 和自己比较
-                        self.evaluate_with_best(i + 1)
                     if win_ratio > self.best_win_ratio:
                         print("New best policy!!!!!!!!")
                         self.best_win_ratio = win_ratio
